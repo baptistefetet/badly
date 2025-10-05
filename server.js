@@ -13,6 +13,10 @@ const COOKIE_NAME = 'badlyAuth';
 const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const PASSWORD_SALT = 'badly-static-salt-v1';
 
+// Limits to prevent excessive data file growth
+const MAX_USERS = 32;
+const MAX_SESSIONS = 8;
+
 // Logging functions
 function debugLog(...args) {
   if (DEBUG) {
@@ -237,6 +241,11 @@ async function handleSignup(req, res) {
   const data = readData();
   const normalized = name.toLowerCase();
 
+  if (data.users.length >= MAX_USERS) {
+    sendError(res, 400, `Limite d'utilisateurs atteinte (${MAX_USERS} maximum)`);
+    return;
+  }
+
   if (data.users.some((user) => user.normalized === normalized)) {
     sendError(res, 400, 'Nom déjà utilisé');
     return;
@@ -408,6 +417,11 @@ async function handleCreateSession(req, res) {
 
   if (data.sessions.some((session) => session.club === normalizedClub && session.datetime === parsedDate.toISOString())) {
     sendError(res, 400, 'Une session existe déjà pour ce club à cette date');
+    return;
+  }
+
+  if (data.sessions.length >= MAX_SESSIONS) {
+    sendError(res, 400, `Limite de sessions atteinte (${MAX_SESSIONS} maximum)`);
     return;
   }
 

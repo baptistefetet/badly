@@ -2,6 +2,7 @@
 .vscode
 node_modules
 data.json
+data.json.bak
 .env
 .*
 !/.gitignore
