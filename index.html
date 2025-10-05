@@ -974,14 +974,25 @@
           headers['Content-Type'] = 'application/json';
           options.body = JSON.stringify(body ?? {});
         }
-        const response = await fetch(path, options).catch(() => ({ ok: false }));
-        if (!response || !response.ok) {
+
+        let response;
+        try {
+          response = await fetch(path, options);
+        } catch (err) {
           throw new Error('Connexion au serveur impossible');
         }
-        const data = await response.json().catch(() => ({ ok: false, error: 'Réponse invalide' }));
-        if (!response.ok || !data.ok) {
-          throw new Error(data.error || 'Erreur serveur');
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (err) {
+          throw new Error('Réponse invalide');
         }
+
+        if (!response.ok || !data || data.ok !== true) {
+          throw new Error((data && data.error) || 'Erreur serveur');
+        }
+
         if (data.user) {
           this.updateAuthCookie(data.user);
         }
