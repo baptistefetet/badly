@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Badly</title>
+  <meta name="theme-color" content="#202245">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    :root {
+      color-scheme: light;
+      --primary: #202245;
+      --primary-light: #343674;
+      --accent: #ffb703;
+      --danger: #d62828;
+      --bg: #f4f4f8;
+      --surface: #ffffff;
+      --text: #1f2333;
+      --text-muted: #5c6075;
+      --border: #d5d7e3;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px clamp(16px, 4vw, 32px);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+
+    .user-menu {
+      position: relative;
+    }
+
+    .user-button {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s ease;
+    }
+
+    .user-button:hover {
+      background: var(--primary-light);
+    }
+
+    .indicator {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      font-size: 0.7rem;
+    }
+
+    .user-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      min-width: 180px;
+      box-shadow: 0 12px 32px rgba(17, 20, 52, 0.15);
+      display: grid;
+      gap: 12px;
+      z-index: 20;
+    }
+
+    .user-dropdown strong {
+      font-size: 0.95rem;
+    }
+
+    .user-dropdown button {
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: var(--border);
+      font-weight: 600;
+    }
+
+    main {
+      flex: 1;
+      padding: clamp(16px, 6vw, 48px);
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sessions-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .session-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      display: grid;
+      gap: 14px;
+      box-shadow: 0 8px 20px rgba(13, 18, 47, 0.08);
+    }
+
+    .session-card header {
+      display: flex;
+      flex-wrap: wrap;
+      row-gap: 6px;
+      column-gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .session-meta {
+      display: grid;
+      gap: 6px;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .session-meta span {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .session-meta strong {
+      color: var(--text);
+    }
+
+    .session-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .session-actions button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .session-actions button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .session-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .participants-line {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .participants-line strong {
+      color: var(--text);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-muted);
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .fab {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: #1a1a1a;
+      font-size: 2rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 16px 30px rgba(255, 183, 3, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      z-index: 15;
+    }
+
+    .fab:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 36px rgba(255, 183, 3, 0.5);
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(12, 15, 37, 0.4);
+      z-index: 30;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 40;
+    }
+
+    .modal-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: clamp(24px, 5vw, 36px);
+      width: min(420px, 100%);
+      box-shadow: 0 24px 48px rgba(12, 15, 37, 0.25);
+      display: grid;
+      gap: 18px;
+      border: 1px solid var(--border);
+    }
+
+    .modal-card h1,
+    .modal-card h2 {
+      margin: 0;
+      text-align: center;
+    }
+
+    .auth-logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(12, 15, 37, 0.2);
+    }
+
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .auth-tabs button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      transition: background 0.2s ease;
+    }
+
+    .auth-tabs button.active {
+      background: var(--surface);
+      box-shadow: 0 6px 16px rgba(12, 15, 37, 0.18);
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.9rem;
+    }
+
+    input,
+    select {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 1rem;
+      background: #fff;
+    }
+
+    input:focus,
+    select:focus {
+      outline: 2px solid var(--primary-light);
+      border-color: transparent;
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .form-actions button {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .toast-container {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 24px;
+      display: grid;
+      gap: 10px;
+      z-index: 50;
+      width: min(90%, 400px);
+    }
+
+    .toast {
+      background: var(--surface);
+      border-left: 4px solid var(--primary);
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 16px 36px rgba(10, 12, 28, 0.18);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .toast.error {
+      border-left-color: var(--danger);
+    }
+
+    .toast.fade-out {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .session-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .session-title span {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(32, 34, 69, 0.08);
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+    }
+
+    @media (min-width: 720px) {
+      .sessions-list {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+    }
+
+    @media (max-width: 600px) {
+      .app-header {
+        padding: 12px 16px;
+      }
+      .session-card {
+        padding: 16px;
+      }
+      .fab {
+        right: 16px;
+        bottom: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">
+        <img src="/favicon.png" alt="Badly" class="brand-icon">
+        <span>Badly</span>
+      </div>
+      <div class="user-menu">
+        <button id="user-button" class="user-button hidden">
+          <span id="user-button-label"></span>
+          <span class="indicator">▼</span>
+        </button>
+        <div id="user-dropdown" class="user-dropdown hidden">
+          <strong id="user-name"></strong>
+          <button id="signout-button" type="button">Se deconnecter</button>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div id="sessions-empty" class="empty-state hidden">
+        Aucune session a venir pour le moment. Cliquez sur + pour en creer une.
+      </div>
+      <div id="sessions-list" class="sessions-list"></div>
+    </main>
+    <button id="create-session-button" class="fab hidden" title="Creer une session">+</button>
+  </div>
+
+  <div id="backdrop" class="backdrop hidden"></div>
+
+  <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <img src="/favicon.png" alt="Badly" class="auth-logo">
+      <h1>Badly</h1>
+      <div class="auth-tabs">
+        <button type="button" data-mode="signin" class="active">Connexion</button>
+        <button type="button" data-mode="signup">Inscription</button>
+      </div>
+      <form id="signin-form">
+        <label>
+          Nom d'utilisateur
+          <input name="name" type="text" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_-]+">
+        </label>
+        <label>
+          Mot de passe
+          <input name="password" type="password" autocomplete="current-password" required minlength="6">
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Connexion</button>
+        </div>
+      </form>
+      <form id="signup-form" class="hidden">
+        <label>
+          Nom d'utilisateur
+          <input name="name" type="text" autocomplete="off" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_-]+">
+        </label>
+        <label>
+          Mot de passe
+          <input name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="64">
+        </label>
+        <label>
+          Confirmation
+          <input name="confirm" type="password" autocomplete="new-password" required minlength="6" maxlength="64">
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Inscription</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="session-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2>Nouvelle session</h2>
+      <form id="session-form">
+        <label>
+          Club
+          <select name="club" required></select>
+        </label>
+        <label>
+          Date et heure
+          <input name="datetime" type="datetime-local" required>
+        </label>
+        <label>
+          Duree (minutes)
+          <input name="duration" type="number" min="30" max="300" step="15" value="90" required>
+        </label>
+        <label>
+          Capacite
+          <input name="capacity" type="number" min="1" max="12" value="4" required>
+        </label>
+        <label>
+          Prix par participant (EUR)
+          <input name="price" type="number" min="0" max="200" step="0.5" value="0" required>
+        </label>
+        <div class="form-actions">
+          <button type="button" id="session-cancel" class="btn-secondary">Annuler</button>
+          <button type="submit" class="btn-primary">Creer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script>
+    const app = {
+      state: {
+        user: null,
+        sessions: [],
+        clubs: []
+      },
+      init() {
+        this.cacheElements();
+        this.bindEvents();
+        this.restoreAuth();
+      },
+      cacheElements() {
+        this.$authModal = document.getElementById('auth-modal');
+        this.$sessionModal = document.getElementById('session-modal');
+        this.$backdrop = document.getElementById('backdrop');
+        this.$signinForm = document.getElementById('signin-form');
+        this.$signupForm = document.getElementById('signup-form');
+        this.$sessionForm = document.getElementById('session-form');
+        this.$sessionCancel = document.getElementById('session-cancel');
+        this.$sessionsList = document.getElementById('sessions-list');
+        this.$sessionsEmpty = document.getElementById('sessions-empty');
+        this.$toastContainer = document.getElementById('toast-container');
+        this.$createButton = document.getElementById('create-session-button');
+        this.$userButton = document.getElementById('user-button');
+        this.$userButtonLabel = document.getElementById('user-button-label');
+        this.$userDropdown = document.getElementById('user-dropdown');
+        this.$userName = document.getElementById('user-name');
+        this.$signoutButton = document.getElementById('signout-button');
+        this.$authTabs = this.$authModal.querySelectorAll('.auth-tabs button');
+      },
+      bindEvents() {
+        document.addEventListener('click', (event) => {
+          if (!this.$userDropdown) return;
+          const isButton = event.target.closest('#user-button');
+          const isDropdown = event.target.closest('#user-dropdown');
+          if (isButton) {
+            this.toggleDropdown();
+          } else if (!isDropdown) {
+            this.closeDropdown();
+          }
+        });
+
+        this.$signoutButton.addEventListener('click', () => this.signout());
+        this.$createButton.addEventListener('click', () => this.openSessionModal());
+        this.$sessionCancel.addEventListener('click', () => this.closeSessionModal());
+        this.$backdrop.addEventListener('click', () => {
+          if (!this.$sessionModal.classList.contains('hidden')) {
+            this.closeSessionModal();
+          }
+        });
+
+        this.$signinForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const formData = new FormData(this.$signinForm);
+          const name = formData.get('name').trim();
+          const password = formData.get('password');
+          if (!name || !password) {
+            this.toast('Champs manquants', true);
+            return;
+          }
+          this.signin({ name, password });
+        });
+
+        this.$signupForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const formData = new FormData(this.$signupForm);
+          const name = formData.get('name').trim();
+          const password = formData.get('password');
+          const confirm = formData.get('confirm');
+          if (password !== confirm) {
+            this.toast('Les mots de passe ne correspondent pas', true);
+            return;
+          }
+          if (password.length < 6) {
+            this.toast('Mot de passe trop court', true);
+            return;
+          }
+          this.signup({ name, password });
+        });
+
+        this.$sessionForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const formData = new FormData(this.$sessionForm);
+          const club = formData.get('club');
+          const datetimeValue = formData.get('datetime');
+          const duration = Number(formData.get('duration'));
+          const capacity = Number(formData.get('capacity'));
+          const price = Number(formData.get('price'));
+
+          if (!club || !datetimeValue) {
+            this.toast('Merci de renseigner tous les champs', true);
+            return;
+          }
+
+          const datetime = new Date(datetimeValue);
+          if (Number.isNaN(datetime.getTime())) {
+            this.toast('Date invalide', true);
+            return;
+          }
+
+          this.createSession({
+            club,
+            datetime: datetime.toISOString(),
+            durationMinutes: duration,
+            capacity,
+            pricePerParticipant: price
+          });
+        });
+
+        this.$authTabs.forEach((button) => {
+          button.addEventListener('click', () => {
+            this.$authTabs.forEach((tab) => tab.classList.toggle('active', tab === button));
+            if (button.dataset.mode === 'signin') {
+              this.$signinForm.classList.remove('hidden');
+              this.$signupForm.classList.add('hidden');
+            } else {
+              this.$signinForm.classList.add('hidden');
+              this.$signupForm.classList.remove('hidden');
+            }
+          });
+        });
+      },
+      async signup(credentials) {
+        try {
+          const response = await this.api('/signup', credentials);
+          this.toast('Inscription reussie');
+          this.onAuthenticated(response.user);
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async signin(credentials) {
+        try {
+          const response = await this.api('/signin', credentials);
+          this.toast('Connexion reussie');
+          this.onAuthenticated(response.user);
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async signout() {
+        try {
+          await this.api('/signout', {});
+        } catch (err) {
+          // signout should not block even if request fails
+        }
+        document.cookie = 'badlyAuth=; Max-Age=0; path=/';
+        this.state.user = null;
+        this.state.sessions = [];
+        this.renderSessions();
+        this.updateUserMenu();
+        this.showAuthModal();
+        this.toggleFab();
+        this.closeDropdown();
+      },
+      onAuthenticated(user) {
+        this.state.user = {
+          ...user,
+          normalized: user.name.toLowerCase()
+        };
+        this.hideAuthModal();
+        this.toggleFab();
+        this.updateUserMenu();
+        this.refreshSessions();
+      },
+      toggleFab() {
+        if (this.state.user) {
+          this.$createButton.classList.remove('hidden');
+        } else {
+          this.$createButton.classList.add('hidden');
+        }
+      },
+      updateUserMenu() {
+        if (!this.state.user) {
+          this.$userButton.classList.add('hidden');
+          return;
+        }
+        this.$userButton.classList.remove('hidden');
+        this.$userName.textContent = this.state.user.name;
+        this.$userButtonLabel.textContent = this.state.user.name;
+      },
+      toggleDropdown() {
+        this.$userDropdown.classList.toggle('hidden');
+      },
+      closeDropdown() {
+        this.$userDropdown.classList.add('hidden');
+      },
+      openSessionModal() {
+        if (!this.state.clubs.length) {
+          this.toast('Aucun club reference. Ajoutez-en dans data.json.', true);
+          return;
+        }
+        this.$sessionForm.reset();
+        const select = this.$sessionForm.elements.namedItem('club');
+        select.innerHTML = '';
+        this.state.clubs.forEach((club) => {
+          const option = document.createElement('option');
+          option.value = club;
+          option.textContent = club;
+          select.appendChild(option);
+        });
+        const datetimeInput = this.$sessionForm.elements.namedItem('datetime');
+        const now = new Date();
+        const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+        datetimeInput.value = local.toISOString().slice(0, 16);
+        this.$sessionModal.classList.remove('hidden');
+        this.$backdrop.classList.remove('hidden');
+      },
+      closeSessionModal() {
+        this.$sessionModal.classList.add('hidden');
+        this.$backdrop.classList.add('hidden');
+        this.$sessionForm.reset();
+      },
+      showAuthModal() {
+        this.$authModal.classList.remove('hidden');
+        this.$backdrop.classList.remove('hidden');
+      },
+      hideAuthModal() {
+        this.$authModal.classList.add('hidden');
+        this.$backdrop.classList.add('hidden');
+        this.$signinForm.reset();
+        this.$signupForm.reset();
+      },
+      async refreshSessions() {
+        try {
+          const response = await this.api('/listSessions', null, { method: 'GET' });
+          this.state.sessions = response.sessions || [];
+          this.state.clubs = response.clubs || [];
+          this.renderSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      renderSessions() {
+        const list = this.$sessionsList;
+        list.innerHTML = '';
+        if (!this.state.sessions.length) {
+          this.$sessionsEmpty.classList.remove('hidden');
+          return;
+        }
+        this.$sessionsEmpty.classList.add('hidden');
+        const now = Date.now();
+        const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeFormatter = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        this.state.sessions.forEach((session) => {
+          const card = document.createElement('article');
+          card.className = 'session-card';
+
+          const sessionDate = new Date(session.datetime);
+          const durationLabel = this.formatDuration(session.durationMinutes);
+          const priceLabel = Number(session.pricePerParticipant) === 0 ? 'Gratuit' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(session.pricePerParticipant);
+          const participants = Array.isArray(session.participants) ? session.participants : [];
+          const participantCount = session.participantCount ?? (participants.length + 1);
+
+          const header = document.createElement('header');
+          header.innerHTML = `
+            <div class="session-title">${session.club} <span>${dateFormatter.format(sessionDate)} ${timeFormatter.format(sessionDate)}</span></div>
+            <span class="pill">${participantCount}/${session.capacity} joueurs</span>
+          `;
+
+          const meta = document.createElement('div');
+          meta.className = 'session-meta';
+          meta.innerHTML = `
+            <span><strong>Organisateur:</strong> ${session.organizer}</span>
+            <span><strong>Duree:</strong> ${durationLabel}</span>
+            <span><strong>Tarif:</strong> ${priceLabel}</span>
+          `;
+
+          const participantsLine = document.createElement('div');
+          participantsLine.className = 'participants-line';
+          const others = participants.filter((name) => name !== session.organizer);
+          participantsLine.innerHTML = `<strong>Participants:</strong> ${others.length ? others.join(', ') : 'Aucun pour le moment'}`;
+
+          const actions = document.createElement('div');
+          actions.className = 'session-actions';
+          const isOrganizer = this.state.user && session.organizer === this.state.user.name;
+          const isGod = this.state.user && this.state.user.normalized === 'god';
+          const isParticipant = this.state.user && participants.includes(this.state.user.name);
+          const hasStarted = sessionDate.getTime() <= now;
+          const isFull = participantCount >= session.capacity;
+
+          if (this.state.user && !isOrganizer && !hasStarted) {
+            if (isParticipant) {
+              const leaveBtn = document.createElement('button');
+              leaveBtn.className = 'btn-secondary';
+              leaveBtn.textContent = 'Quitter';
+              leaveBtn.addEventListener('click', () => this.leaveSession(session.id));
+              actions.appendChild(leaveBtn);
+            } else {
+              const joinBtn = document.createElement('button');
+              joinBtn.className = 'btn-primary';
+              joinBtn.textContent = isFull ? 'Session pleine' : 'Rejoindre';
+              if (isFull) {
+                joinBtn.disabled = true;
+                joinBtn.classList.add('btn-disabled');
+              } else {
+                joinBtn.addEventListener('click', () => this.joinSession(session.id));
+              }
+              actions.appendChild(joinBtn);
+            }
+          }
+
+          if (this.state.user && (isOrganizer || isGod)) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-danger';
+            deleteBtn.textContent = 'Supprimer';
+            deleteBtn.addEventListener('click', () => this.deleteSession(session.id));
+            actions.appendChild(deleteBtn);
+          }
+
+          if (hasStarted && !actions.children.length) {
+            const info = document.createElement('span');
+            info.className = 'badge';
+            info.textContent = 'Session demarree';
+            actions.appendChild(info);
+          }
+
+          card.appendChild(header);
+          card.appendChild(meta);
+          card.appendChild(participantsLine);
+          card.appendChild(actions);
+          list.appendChild(card);
+        });
+      },
+      formatDuration(minutes) {
+        const total = Number(minutes) || 0;
+        const hours = Math.floor(total / 60);
+        const mins = total % 60;
+        if (hours && mins) return `${hours} h ${mins} min`;
+        if (hours) return `${hours} h`;
+        return `${mins} min`;
+      },
+      async createSession(payload) {
+        try {
+          await this.api('/createSession', payload);
+          this.toast('Session creee');
+          this.closeSessionModal();
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async deleteSession(sessionId) {
+        if (!confirm('Supprimer cette session ?')) return;
+        try {
+          await this.api('/deleteSession', { sessionId });
+          this.toast('Session supprimee');
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async joinSession(sessionId) {
+        try {
+          await this.api('/joinSession', { sessionId });
+          this.toast('Inscription enregistree');
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async leaveSession(sessionId) {
+        try {
+          await this.api('/leaveSession', { sessionId });
+          this.toast('Desinscription enregistree');
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async restoreAuth() {
+        const payload = this.readAuthCookie();
+        if (!payload) {
+          this.showAuthModal();
+          return;
+        }
+        try {
+          const response = await this.api('/signin', payload);
+          this.onAuthenticated(response.user);
+        } catch (err) {
+          document.cookie = 'badlyAuth=; Max-Age=0; path=/';
+          this.showAuthModal();
+        }
+      },
+      readAuthCookie() {
+        const value = document.cookie.split('; ').find((part) => part.startsWith('badlyAuth='));
+        if (!value) return null;
+        const raw = decodeURIComponent(value.split('=')[1] || '');
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.name && parsed.passwordHash) {
+            return parsed;
+          }
+        } catch (err) {
+          return null;
+        }
+        return null;
+      },
+      async api(path, body, extra = {}) {
+        const method = extra.method || (body ? 'POST' : 'GET');
+        const headers = { ...(extra.headers || {}) };
+        const options = { ...extra, method, headers };
+        if (method !== 'GET') {
+          headers['Content-Type'] = 'application/json';
+          options.body = JSON.stringify(body ?? {});
+        }
+        const response = await fetch(path, options).catch(() => ({ ok: false }));
+        if (!response || !response.ok) {
+          throw new Error('Connexion au serveur impossible');
+        }
+        const data = await response.json().catch(() => ({ ok: false, error: 'Reponse invalide' }));
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Erreur serveur');
+        }
+        if (data.user) {
+          this.updateAuthCookie(data.user);
+        }
+        return data;
+      },
+      updateAuthCookie(user) {
+        const value = encodeURIComponent(JSON.stringify({ name: user.name, passwordHash: user.passwordHash }));
+        document.cookie = `badlyAuth=${value}; Max-Age=2592000; path=/`;
+      },
+      toast(message, isError = false) {
+        const toast = document.createElement('div');
+        toast.className = `toast${isError ? ' error' : ''}`;
+        toast.textContent = message;
+        this.$toastContainer.appendChild(toast);
+        setTimeout(() => {
+          toast.classList.add('fade-out');
+          toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+          setTimeout(() => toast.remove(), 400);
+        }, 3200);
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => app.init());
+  </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 *.code-workspace
 .vscode
 node_modules
+data.json
 .env
 .*
 !/.gitignore

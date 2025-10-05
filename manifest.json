@@ -1,0 +1,16 @@
+{
+  "name": "Badly",
+  "short_name": "Badly",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f8",
+  "theme_color": "#202245",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
