@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const DEBUG = false;
 const PORT = 3001;
 const DATA_FILE = path.join(__dirname, 'data.json');
 const INDEX_FILE = path.join(__dirname, 'index.html');
@@ -11,6 +12,19 @@ const FAVICON_FILE = path.join(__dirname, 'favicon.png');
 const COOKIE_NAME = 'badlyAuth';
 const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const PASSWORD_SALT = 'badly-static-salt-v1';
+
+// Logging functions
+function debugLog(...args) {
+  if (DEBUG) {
+    console.log(...args);
+  }
+}
+
+function debugError(...args) {
+  if (DEBUG) {
+    console.error(...args);
+  }
+}
 
 function ensureDataFile() {
   if (!fs.existsSync(DATA_FILE)) {
@@ -210,12 +224,12 @@ async function handleSignup(req, res) {
   const password = payload.password;
 
   if (name.length < 3 || name.length > 20 || !/^[A-Za-z0-9_-]+$/.test(name)) {
-    sendError(res, 400, 'Nom invalide (3-20 caracteres, alphanumerique, tiret ou underscore)');
+    sendError(res, 400, 'Nom invalide (3-20 caractères, alphanumérique, tiret ou underscore)');
     return;
   }
 
   if (password.length < 6 || password.length > 64) {
-    sendError(res, 400, 'Mot de passe invalide (6-64 caracteres)');
+    sendError(res, 400, 'Mot de passe invalide (6-64 caractères)');
     return;
   }
 
@@ -224,7 +238,7 @@ async function handleSignup(req, res) {
   const normalized = name.toLowerCase();
 
   if (data.users.some((user) => user.normalized === normalized)) {
-    sendError(res, 400, 'Nom deja utilise');
+    sendError(res, 400, 'Nom déjà utilisé');
     return;
   }
 
@@ -266,14 +280,14 @@ async function handleSignin(req, res) {
   const data = readData();
   const user = findUser(data, name);
   if (!user) {
-    setTimeout(() => sendError(res, 401, 'Authentification echouee'), 250);
+    setTimeout(() => sendError(res, 401, 'Authentification échouée'), 250);
     return;
   }
 
   let providedHash = null;
   if (typeof payload.password === 'string') {
     if (payload.password.length < 6 || payload.password.length > 64) {
-      sendError(res, 400, 'Authentification echouee');
+      sendError(res, 400, 'Authentification échouée');
       return;
     }
     providedHash = hashPassword(payload.password);
@@ -282,7 +296,7 @@ async function handleSignin(req, res) {
   }
 
   if (!providedHash || providedHash !== user.passwordHash) {
-    setTimeout(() => sendError(res, 401, 'Authentification echouee'), 250);
+    setTimeout(() => sendError(res, 401, 'Authentification échouée'), 250);
     return;
   }
 
@@ -359,13 +373,13 @@ async function handleCreateSession(req, res) {
 
   const now = Date.now();
   if (parsedDate.getTime() < now - 5 * 60 * 1000) {
-    sendError(res, 400, 'La session doit etre dans le futur');
+    sendError(res, 400, 'La session doit être dans le futur');
     return;
   }
 
   const duration = Number(durationMinutes);
   if (!Number.isFinite(duration) || duration <= 0 || duration > 300) {
-    sendError(res, 400, 'Duree invalide');
+    sendError(res, 400, 'Durée invalide');
     return;
   }
 
@@ -381,7 +395,7 @@ async function handleCreateSession(req, res) {
 
   const normalizedCapacity = Number(capacity);
   if (!Number.isInteger(normalizedCapacity) || normalizedCapacity < 1 || normalizedCapacity > 12) {
-    sendError(res, 400, 'Capacite invalide');
+    sendError(res, 400, 'Capacité invalide');
     return;
   }
 
@@ -393,7 +407,7 @@ async function handleCreateSession(req, res) {
   const roundedPrice = Math.round(price * 100) / 100;
 
   if (data.sessions.some((session) => session.club === normalizedClub && session.datetime === parsedDate.toISOString())) {
-    sendError(res, 400, 'Une session existe deja pour ce club a cette date');
+    sendError(res, 400, 'Une session existe déjà pour ce club à cette date');
     return;
   }
 
@@ -487,22 +501,22 @@ async function handleJoinSession(req, res) {
   }
 
   if (sessionHasStarted(session)) {
-    sendError(res, 400, 'La session est deja commencee');
+    sendError(res, 400, 'La session est déjà commencée');
     return;
   }
 
   if (session.organizer === user.name) {
-    sendError(res, 400, 'Organisateur deja inscrit');
+    sendError(res, 400, 'Organisateur déjà inscrit');
     return;
   }
 
   if (session.participants.includes(user.name)) {
-    sendError(res, 400, 'Utilisateur deja inscrit');
+    sendError(res, 400, 'Utilisateur déjà inscrit');
     return;
   }
 
   if (session.participants.length + 1 >= session.capacity) {
-    sendError(res, 400, 'Session complete');
+    sendError(res, 400, 'Session complète');
     return;
   }
 
@@ -541,7 +555,7 @@ async function handleLeaveSession(req, res) {
   }
 
   if (session.organizer === user.name) {
-    sendError(res, 400, 'L\'organisateur ne peut se desinscrire');
+    sendError(res, 400, 'L\'organisateur ne peut se désinscrire');
     return;
   }
 
@@ -551,7 +565,7 @@ async function handleLeaveSession(req, res) {
   }
 
   if (sessionHasStarted(session)) {
-    sendError(res, 400, 'La session est deja commencee');
+    sendError(res, 400, 'La session est déjà commencée');
     return;
   }
 
@@ -580,90 +594,90 @@ function requestHandler(req, res) {
   const logPrefix = `${new Date().toISOString()} ${req.method} ${pathname}`;
 
   if (req.method === 'GET' && pathname === '/') {
-    console.log(`${logPrefix} -> 200`);
+    debugLog(`${logPrefix} -> 200`);
     serveStaticFile(res, INDEX_FILE, 'text/html; charset=utf-8');
     return;
   }
 
   if (req.method === 'GET' && pathname === '/manifest.json') {
-    console.log(`${logPrefix} -> 200`);
+    debugLog(`${logPrefix} -> 200`);
     serveStaticFile(res, MANIFEST_FILE, 'application/manifest+json; charset=utf-8');
     return;
   }
 
   if (req.method === 'GET' && pathname === '/favicon.png') {
-    console.log(`${logPrefix} -> 200`);
+    debugLog(`${logPrefix} -> 200`);
     serveStaticFile(res, FAVICON_FILE, 'image/png');
     return;
   }
 
   if (req.method === 'POST' && pathname === '/signup') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleSignup(req, res).catch((err) => {
-      console.error(`${logPrefix} error`, err);
+      debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
     return;
   }
 
   if (req.method === 'POST' && pathname === '/signin') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleSignin(req, res).catch((err) => {
-      console.error(`${logPrefix} error`, err);
+      debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
     return;
   }
 
   if (req.method === 'POST' && pathname === '/signout') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleSignout(req, res);
     return;
   }
 
   if (req.method === 'GET' && pathname === '/listSessions') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleListSessions(req, res);
     return;
   }
 
   if (req.method === 'POST' && pathname === '/createSession') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleCreateSession(req, res).catch((err) => {
-      console.error(`${logPrefix} error`, err);
+      debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
     return;
   }
 
   if (req.method === 'POST' && pathname === '/deleteSession') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleDeleteSession(req, res).catch((err) => {
-      console.error(`${logPrefix} error`, err);
+      debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
     return;
   }
 
   if (req.method === 'POST' && pathname === '/joinSession') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleJoinSession(req, res).catch((err) => {
-      console.error(`${logPrefix} error`, err);
+      debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
     return;
   }
 
   if (req.method === 'POST' && pathname === '/leaveSession') {
-    console.log(`${logPrefix}`);
+    debugLog(`${logPrefix}`);
     handleLeaveSession(req, res).catch((err) => {
-      console.error(`${logPrefix} error`, err);
+      debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
     return;
   }
 
-  console.log(`${logPrefix} -> 404`);
+  debugLog(`${logPrefix} -> 404`);
   res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({ ok: false, error: 'Not found' }));
 }

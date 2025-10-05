@@ -477,17 +477,17 @@
         </button>
         <div id="user-dropdown" class="user-dropdown hidden">
           <strong id="user-name"></strong>
-          <button id="signout-button" type="button">Se deconnecter</button>
+          <button id="signout-button" type="button">Se déconnecter</button>
         </div>
       </div>
     </header>
     <main>
       <div id="sessions-empty" class="empty-state hidden">
-        Aucune session a venir pour le moment. Cliquez sur + pour en creer une.
+        Aucune session à venir pour le moment. Cliquez sur + pour en créer une.
       </div>
       <div id="sessions-list" class="sessions-list"></div>
     </main>
-    <button id="create-session-button" class="fab hidden" title="Creer une session">+</button>
+    <button id="create-session-button" class="fab hidden" title="Créer une session">+</button>
   </div>
 
   <div id="backdrop" class="backdrop hidden"></div>
@@ -546,11 +546,11 @@
           <input name="datetime" type="datetime-local" required>
         </label>
         <label>
-          Duree (minutes)
+          Durée (minutes)
           <input name="duration" type="number" min="30" max="300" step="15" value="90" required>
         </label>
         <label>
-          Capacite
+          Capacité
           <input name="capacity" type="number" min="1" max="12" value="4" required>
         </label>
         <label>
@@ -559,7 +559,7 @@
         </label>
         <div class="form-actions">
           <button type="button" id="session-cancel" class="btn-secondary">Annuler</button>
-          <button type="submit" class="btn-primary">Creer</button>
+          <button type="submit" class="btn-primary">Créer</button>
         </div>
       </form>
     </div>
@@ -693,7 +693,7 @@
       async signup(credentials) {
         try {
           const response = await this.api('/signup', credentials);
-          this.toast('Inscription reussie');
+          this.toast('Inscription réussie');
           this.onAuthenticated(response.user);
         } catch (err) {
           this.toast(err.message, true);
@@ -702,7 +702,7 @@
       async signin(credentials) {
         try {
           const response = await this.api('/signin', credentials);
-          this.toast('Connexion reussie');
+          this.toast('Connexion réussie');
           this.onAuthenticated(response.user);
         } catch (err) {
           this.toast(err.message, true);
@@ -757,7 +757,7 @@
       },
       openSessionModal() {
         if (!this.state.clubs.length) {
-          this.toast('Aucun club reference. Ajoutez-en dans data.json.', true);
+          this.toast('Aucun club référencé. Ajoutez-en dans data.json.', true);
           return;
         }
         this.$sessionForm.reset();
@@ -831,15 +831,15 @@
           const meta = document.createElement('div');
           meta.className = 'session-meta';
           meta.innerHTML = `
-            <span><strong>Organisateur:</strong> ${session.organizer}</span>
-            <span><strong>Duree:</strong> ${durationLabel}</span>
-            <span><strong>Tarif:</strong> ${priceLabel}</span>
+            <span><strong>Organisateur :</strong> ${session.organizer}</span>
+            <span><strong>Durée :</strong> ${durationLabel}</span>
+            <span><strong>Tarif :</strong> ${priceLabel}</span>
           `;
 
           const participantsLine = document.createElement('div');
           participantsLine.className = 'participants-line';
           const others = participants.filter((name) => name !== session.organizer);
-          participantsLine.innerHTML = `<strong>Participants:</strong> ${others.length ? others.join(', ') : 'Aucun pour le moment'}`;
+          participantsLine.innerHTML = `<strong>Participants :</strong> ${others.length ? others.join(', ') : 'Aucun pour le moment'}`;
 
           const actions = document.createElement('div');
           actions.className = 'session-actions';
@@ -881,7 +881,7 @@
           if (hasStarted && !actions.children.length) {
             const info = document.createElement('span');
             info.className = 'badge';
-            info.textContent = 'Session demarree';
+            info.textContent = 'Session démarrée';
             actions.appendChild(info);
           }
 
@@ -903,7 +903,7 @@
       async createSession(payload) {
         try {
           await this.api('/createSession', payload);
-          this.toast('Session creee');
+          this.toast('Session créée');
           this.closeSessionModal();
           this.refreshSessions();
         } catch (err) {
@@ -914,7 +914,7 @@
         if (!confirm('Supprimer cette session ?')) return;
         try {
           await this.api('/deleteSession', { sessionId });
-          this.toast('Session supprimee');
+          this.toast('Session supprimée');
           this.refreshSessions();
         } catch (err) {
           this.toast(err.message, true);
@@ -923,7 +923,7 @@
       async joinSession(sessionId) {
         try {
           await this.api('/joinSession', { sessionId });
-          this.toast('Inscription enregistree');
+          this.toast('Inscription enregistrée');
           this.refreshSessions();
         } catch (err) {
           this.toast(err.message, true);
@@ -932,7 +932,7 @@
       async leaveSession(sessionId) {
         try {
           await this.api('/leaveSession', { sessionId });
-          this.toast('Desinscription enregistree');
+          this.toast('Désinscription enregistrée');
           this.refreshSessions();
         } catch (err) {
           this.toast(err.message, true);
@@ -978,7 +978,7 @@
         if (!response || !response.ok) {
           throw new Error('Connexion au serveur impossible');
         }
-        const data = await response.json().catch(() => ({ ok: false, error: 'Reponse invalide' }));
+        const data = await response.json().catch(() => ({ ok: false, error: 'Réponse invalide' }));
         if (!response.ok || !data.ok) {
           throw new Error(data.error || 'Erreur serveur');
         }
