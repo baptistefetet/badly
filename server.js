@@ -185,6 +185,7 @@ function formatSessionForClient(session) {
     datetime: session.datetime,
     durationMinutes: session.durationMinutes,
     club: session.club,
+    level: session.level,
     capacity: session.capacity,
     pricePerParticipant: session.pricePerParticipant,
     organizer: session.organizer,
@@ -367,7 +368,7 @@ async function handleCreateSession(req, res) {
     return;
   }
 
-  const { datetime, durationMinutes, club, capacity, pricePerParticipant } = payload || {};
+  const { datetime, durationMinutes, club, level, capacity, pricePerParticipant } = payload || {};
 
   if (typeof datetime !== 'string') {
     sendError(res, 400, 'Date/heure invalide');
@@ -402,6 +403,13 @@ async function handleCreateSession(req, res) {
     return;
   }
 
+  const allowedLevels = ['débutant', 'débutant/moyen', 'moyen', 'confirmé'];
+  const normalizedLevel = typeof level === 'string' ? level.trim() : '';
+  if (!normalizedLevel || !allowedLevels.includes(normalizedLevel)) {
+    sendError(res, 400, 'Niveau invalide');
+    return;
+  }
+
   const normalizedCapacity = Number(capacity);
   if (!Number.isInteger(normalizedCapacity) || normalizedCapacity < 1 || normalizedCapacity > 12) {
     sendError(res, 400, 'Capacité invalide');
@@ -430,6 +438,7 @@ async function handleCreateSession(req, res) {
     datetime: parsedDate.toISOString(),
     durationMinutes: duration,
     club: normalizedClub,
+    level: normalizedLevel,
     capacity: normalizedCapacity,
     pricePerParticipant: roundedPrice,
     organizer: user.name,

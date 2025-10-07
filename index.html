@@ -546,6 +546,15 @@
           <input name="datetime" type="datetime-local" required>
         </label>
         <label>
+          Niveau des joueurs
+          <select name="level" required>
+            <option value="débutant">Débutant</option>
+            <option value="débutant/moyen">Débutant/Moyen</option>
+            <option value="moyen" selected>Moyen</option>
+            <option value="confirmé">Confirmé</option>
+          </select>
+        </label>
+        <label>
           Durée (minutes)
           <input name="duration" type="number" min="30" max="300" step="15" value="90" required>
         </label>
@@ -661,6 +670,7 @@
           const formData = new FormData(this.$sessionForm);
           const club = formData.get('club');
           const datetimeValue = formData.get('datetime');
+          const level = formData.get('level');
           const duration = Number(formData.get('duration'));
           const capacity = Number(formData.get('capacity'));
           const price = Number(formData.get('price'));
@@ -679,6 +689,7 @@
           this.createSession({
             club,
             datetime: datetime.toISOString(),
+            level,
             durationMinutes: duration,
             capacity,
             pricePerParticipant: price
@@ -850,6 +861,7 @@
           meta.className = 'session-meta';
           meta.innerHTML = `
             <span><strong>Organisateur :</strong> ${session.organizer}</span>
+            ${session.level ? `<span><strong>Niveau :</strong> ${session.level}</span>` : ''}
             <span><strong>Durée :</strong> ${durationLabel}</span>
             <span><strong>Tarif :</strong> ${priceLabel}</span>
           `;
