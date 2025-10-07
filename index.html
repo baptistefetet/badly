@@ -578,6 +578,14 @@
         this.cacheElements();
         this.bindEvents();
         this.restoreAuth();
+        this.startAutoRefresh();
+      },
+      startAutoRefresh() {
+        setInterval(() => {
+          if (this.state.user) {
+            this.refreshSessions();
+          }
+        }, 3600000);
       },
       cacheElements() {
         this.$authModal = document.getElementById('auth-modal');
