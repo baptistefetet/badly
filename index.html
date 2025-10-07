@@ -691,21 +691,31 @@
         });
       },
       async signup(credentials) {
+        if (this._signingUp) return;
+        this._signingUp = true;
         try {
           const response = await this.api('/signup', credentials);
           this.toast('Inscription réussie');
           this.onAuthenticated(response.user);
         } catch (err) {
           this.toast(err.message, true);
+        } finally {
+          this._signingUp = false;
         }
       },
-      async signin(credentials) {
+      async signin(credentials, silent = false) {
+        if (this._signingIn) return;
+        this._signingIn = true;
         try {
           const response = await this.api('/signin', credentials);
-          this.toast('Connexion réussie');
+          if (!silent) {
+            this.toast('Connexion réussie');
+          }
           this.onAuthenticated(response.user);
         } catch (err) {
           this.toast(err.message, true);
+        } finally {
+          this._signingIn = false;
         }
       },
       async signout() {
