@@ -190,8 +190,9 @@ function formatSessionForClient(session) {
     pricePerParticipant: session.pricePerParticipant,
     organizer: session.organizer,
     participants: session.participants,
+    guests: session.guests || 0,
     createdAt: session.createdAt,
-    participantCount: Math.min(session.participants.length + 1, session.capacity)
+    participantCount: Math.min(session.participants.length + 1 + (session.guests || 0), session.capacity)
   };
 }
 
@@ -443,6 +444,7 @@ async function handleCreateSession(req, res) {
     pricePerParticipant: roundedPrice,
     organizer: user.name,
     participants: [],
+    guests: 0,
     createdAt: new Date().toISOString()
   };
 
@@ -538,7 +540,8 @@ async function handleJoinSession(req, res) {
     return;
   }
 
-  if (session.participants.length + 1 >= session.capacity) {
+  const currentGuests = session.guests || 0;
+  if (session.participants.length + 1 + currentGuests >= session.capacity) {
     sendError(res, 400, 'Session complète');
     return;
   }
@@ -593,6 +596,108 @@ async function handleLeaveSession(req, res) {
   }
 
   session.participants = session.participants.filter((name) => name !== user.name);
+  writeData(data);
+
+  sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
+}
+
+async function handleAddGuest(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data, user } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || typeof payload.sessionId !== 'string') {
+    sendError(res, 400, 'Identifiant session manquant');
+    return;
+  }
+
+  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  if (!session) {
+    sendError(res, 404, 'Session introuvable');
+    return;
+  }
+
+  if (session.organizer !== user.name) {
+    sendError(res, 403, 'Seul l\'organisateur peut ajouter des invités');
+    return;
+  }
+
+  if (sessionHasStarted(session)) {
+    sendError(res, 400, 'La session est déjà commencée');
+    return;
+  }
+
+  const currentGuests = session.guests || 0;
+  const currentTotal = session.participants.length + 1 + currentGuests;
+
+  if (currentTotal >= session.capacity) {
+    sendError(res, 400, 'Session complète');
+    return;
+  }
+
+  session.guests = currentGuests + 1;
+  writeData(data);
+
+  sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
+}
+
+async function handleRemoveGuest(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data, user } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || typeof payload.sessionId !== 'string') {
+    sendError(res, 400, 'Identifiant session manquant');
+    return;
+  }
+
+  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  if (!session) {
+    sendError(res, 404, 'Session introuvable');
+    return;
+  }
+
+  if (session.organizer !== user.name) {
+    sendError(res, 403, 'Seul l\'organisateur peut retirer des invités');
+    return;
+  }
+
+  if (sessionHasStarted(session)) {
+    sendError(res, 400, 'La session est déjà commencée');
+    return;
+  }
+
+  const currentGuests = session.guests || 0;
+  if (currentGuests <= 0) {
+    sendError(res, 400, 'Aucun invité à retirer');
+    return;
+  }
+
+  session.guests = currentGuests - 1;
   writeData(data);
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
@@ -694,6 +799,24 @@ function requestHandler(req, res) {
   if (req.method === 'POST' && pathname === '/leaveSession') {
     debugLog(`${logPrefix}`);
     handleLeaveSession(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/addGuest') {
+    debugLog(`${logPrefix}`);
+    handleAddGuest(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/removeGuest') {
+    debugLog(`${logPrefix}`);
+    handleRemoveGuest(req, res).catch((err) => {
       debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });

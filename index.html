@@ -869,7 +869,12 @@
           const participantsLine = document.createElement('div');
           participantsLine.className = 'participants-line';
           const others = participants.filter((name) => name !== session.organizer);
-          participantsLine.innerHTML = `<strong>Participants :</strong> ${others.length ? others.join(', ') : 'Aucun pour le moment'}`;
+          const guestCount = session.guests || 0;
+          let participantsText = others.length ? others.join(', ') : 'Aucun pour le moment';
+          if (guestCount > 0) {
+            participantsText += ` ${guestCount > 0 ? '+ ' + guestCount + ' invité' + (guestCount > 1 ? 's' : '') : ''}`;
+          }
+          participantsLine.innerHTML = `<strong>Participants :</strong> ${participantsText}`;
 
           const actions = document.createElement('div');
           actions.className = 'session-actions';
@@ -878,6 +883,7 @@
           const isParticipant = this.state.user && participants.includes(this.state.user.name);
           const hasStarted = sessionDate.getTime() <= now;
           const isFull = participantCount >= session.capacity;
+          const currentGuests = session.guests || 0;
 
           if (this.state.user && !isOrganizer && !hasStarted) {
             if (isParticipant) {
@@ -906,6 +912,24 @@
             deleteBtn.textContent = 'Supprimer';
             deleteBtn.addEventListener('click', () => this.deleteSession(session.id));
             actions.appendChild(deleteBtn);
+          }
+
+          if (this.state.user && isOrganizer && !hasStarted) {
+            if (!isFull) {
+              const addGuestBtn = document.createElement('button');
+              addGuestBtn.className = 'btn-primary';
+              addGuestBtn.textContent = '+1 Invité';
+              addGuestBtn.addEventListener('click', () => this.addGuest(session.id));
+              actions.appendChild(addGuestBtn);
+            }
+
+            if (currentGuests > 0) {
+              const removeGuestBtn = document.createElement('button');
+              removeGuestBtn.className = 'btn-primary';
+              removeGuestBtn.textContent = '-1 Invité';
+              removeGuestBtn.addEventListener('click', () => this.removeGuest(session.id));
+              actions.appendChild(removeGuestBtn);
+            }
           }
 
           if (hasStarted && !actions.children.length) {
@@ -963,6 +987,24 @@
         try {
           await this.api('/leaveSession', { sessionId });
           this.toast('Désinscription enregistrée');
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async addGuest(sessionId) {
+        try {
+          await this.api('/addGuest', { sessionId });
+          this.toast('Invité ajouté');
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async removeGuest(sessionId) {
+        try {
+          await this.api('/removeGuest', { sessionId });
+          this.toast('Invité retiré');
           this.refreshSessions();
         } catch (err) {
           this.toast(err.message, true);
