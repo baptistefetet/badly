@@ -17,6 +17,9 @@ const PASSWORD_SALT = 'badly-static-salt-v1';
 const MAX_USERS = 32;
 const MAX_SESSIONS = 8;
 
+// In-memory cache for data.json
+let dataCache = null;
+
 // Logging functions
 function debugLog(...args) {
   if (DEBUG) {
@@ -38,10 +41,17 @@ function ensureDataFile() {
       clubs: []
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(seed, null, 2));
+    // Initialize cache with seed data
+    dataCache = seed;
   }
 }
 
 function readData() {
+  // Return cached data if available
+  if (dataCache !== null) {
+    return dataCache;
+  }
+  
   const raw = fs.readFileSync(DATA_FILE, 'utf8');
   let parsed;
   try {
@@ -52,11 +62,16 @@ function readData() {
   if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = [];
   if (!parsed.sessions || !Array.isArray(parsed.sessions)) parsed.sessions = [];
   if (!parsed.clubs || !Array.isArray(parsed.clubs)) parsed.clubs = [];
+  
+  // Cache the data
+  dataCache = parsed;
   return parsed;
 }
 
 function writeData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  // Update cache after write
+  dataCache = data;
 }
 
 function hashPassword(password) {
