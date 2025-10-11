@@ -350,7 +350,12 @@ function requireAuth(req, res) {
 }
 
 function respondWithSessions(res, data) {
-  const sessions = [...data.sessions].sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+  const sessions = [...data.sessions]
+    .sort((a, b) => {
+      const dateA = new Date(a.datetime);
+      const dateB = new Date(b.datetime);
+      return dateA.getTime() - dateB.getTime();
+    })
     .map(formatSessionForClient);
   sendJson(res, 200, { ok: true, sessions, clubs: data.clubs });
 }
