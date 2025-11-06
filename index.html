@@ -461,6 +461,126 @@
         bottom: 16px;
       }
     }
+
+    /* Install Prompt Styles */
+    .install-prompt {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 60;
+      background: rgba(12, 15, 37, 0.5);
+      backdrop-filter: blur(4px);
+    }
+
+    .install-prompt-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: clamp(24px, 5vw, 32px);
+      width: min(480px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 48px rgba(12, 15, 37, 0.3);
+      border: 1px solid var(--border);
+      display: grid;
+      gap: 20px;
+    }
+
+    .install-prompt-header {
+      display: grid;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .install-prompt-header h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: var(--primary);
+    }
+
+    .install-prompt-header p {
+      margin: 0;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .install-instructions {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .install-step {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .install-step-number {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .install-step-text {
+      flex: 1;
+      line-height: 1.6;
+      padding-top: 2px;
+    }
+
+    .install-step-text strong {
+      color: var(--primary);
+    }
+
+    .install-icon {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(32, 34, 69, 0.1);
+      border-radius: 4px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .install-prompt-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .install-prompt-actions button {
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .install-prompt-actions button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-dismiss {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .btn-understood {
+      background: var(--primary);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -586,6 +706,22 @@
 
   <div id="toast-container" class="toast-container"></div>
 
+  <div id="install-prompt" class="install-prompt hidden">
+    <div class="install-prompt-card">
+      <div class="install-prompt-header">
+        <h2>📱 Installez Badly sur votre téléphone</h2>
+        <p>Accédez rapidement à l'application directement depuis votre écran d'accueil !</p>
+      </div>
+      <div class="install-instructions" id="install-instructions">
+        <!-- Les instructions seront insérées ici selon le type d'appareil -->
+      </div>
+      <div class="install-prompt-actions">
+        <button type="button" id="install-dismiss" class="btn-dismiss">Plus tard</button>
+        <button type="button" id="install-understood" class="btn-understood">J'ai compris !</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const app = {
       state: {
@@ -627,6 +763,10 @@
         this.$userName = document.getElementById('user-name');
         this.$signoutButton = document.getElementById('signout-button');
         this.$authTabs = this.$authModal.querySelectorAll('.auth-tabs button');
+        this.$installPrompt = document.getElementById('install-prompt');
+        this.$installInstructions = document.getElementById('install-instructions');
+        this.$installDismiss = document.getElementById('install-dismiss');
+        this.$installUnderstood = document.getElementById('install-understood');
       },
       bindEvents() {
         document.addEventListener('click', (event) => {
@@ -739,6 +879,9 @@
             }
           });
         });
+
+        this.$installDismiss.addEventListener('click', () => this.dismissInstallPrompt());
+        this.$installUnderstood.addEventListener('click', () => this.dismissInstallPrompt(true));
       },
       async signup(credentials) {
         if (this._signingUp) return;
@@ -775,6 +918,7 @@
           // signout should not block even if request fails
         }
         document.cookie = 'badlyAuth=; Max-Age=0; path=/';
+        document.cookie = 'badlyInstallPromptSeen=; Max-Age=0; path=/';
         this.state.user = null;
         this.state.sessions = [];
         this.renderSessions();
@@ -792,6 +936,7 @@
         this.toggleFab();
         this.updateUserMenu();
         this.refreshSessions();
+        this.checkInstallPrompt();
       },
       toggleFab() {
         if (this.state.user) {
@@ -1182,6 +1327,102 @@
           toast.addEventListener('transitionend', () => toast.remove(), { once: true });
           setTimeout(() => toast.remove(), 400);
         }, 3200);
+      },
+      checkInstallPrompt() {
+        // Vérifier si le cookie existe déjà
+        const hasSeenPrompt = this.getCookie('badlyInstallPromptSeen');
+        if (hasSeenPrompt === 'true') {
+          return;
+        }
+
+        // Détecter si l'utilisateur est sur mobile
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+        const isAndroid = /android/i.test(userAgent);
+        
+        // Vérifier si déjà installé (mode standalone)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+          || window.navigator.standalone 
+          || document.referrer.includes('android-app://');
+
+        if (isStandalone) {
+          // L'app est déjà installée, pas besoin d'afficher le prompt
+          this.setCookie('badlyInstallPromptSeen', 'true', 365);
+          return;
+        }
+
+        if (isIOS) {
+          this.showInstallPrompt('ios');
+        } else if (isAndroid) {
+          this.showInstallPrompt('android');
+        }
+        // Sinon, on n'affiche rien (desktop)
+      },
+      showInstallPrompt(platform) {
+        const instructions = this.$installInstructions;
+        
+        if (platform === 'ios') {
+          instructions.innerHTML = `
+            <div class="install-step">
+              <div class="install-step-number">1</div>
+              <div class="install-step-text">
+                Appuyez sur le bouton <strong>"Partager"</strong> <span class="install-icon">📤</span> en bas de Safari
+              </div>
+            </div>
+            <div class="install-step">
+              <div class="install-step-number">2</div>
+              <div class="install-step-text">
+                Faites défiler et sélectionnez <strong>"Sur l'écran d'accueil"</strong> <span class="install-icon">➕</span>
+              </div>
+            </div>
+            <div class="install-step">
+              <div class="install-step-number">3</div>
+              <div class="install-step-text">
+                Appuyez sur <strong>"Ajouter"</strong> pour confirmer
+              </div>
+            </div>
+          `;
+        } else if (platform === 'android') {
+          instructions.innerHTML = `
+            <div class="install-step">
+              <div class="install-step-number">1</div>
+              <div class="install-step-text">
+                Appuyez sur le menu <span class="install-icon">⋮</span> en haut à droite de Chrome
+              </div>
+            </div>
+            <div class="install-step">
+              <div class="install-step-number">2</div>
+              <div class="install-step-text">
+                Sélectionnez <strong>"Ajouter à l'écran d'accueil"</strong> ou <strong>"Installer l'application"</strong>
+              </div>
+            </div>
+            <div class="install-step">
+              <div class="install-step-number">3</div>
+              <div class="install-step-text">
+                Confirmez en appuyant sur <strong>"Ajouter"</strong>
+              </div>
+            </div>
+          `;
+        }
+
+        this.$installPrompt.classList.remove('hidden');
+      },
+      dismissInstallPrompt(permanently = false) {
+        this.$installPrompt.classList.add('hidden');
+        if (permanently) {
+          // "J'ai compris !" : Enregistrer le cookie pour ne pas réafficher pendant 1 an
+          this.setCookie('badlyInstallPromptSeen', 'true', 365);
+        }
+        // "Plus tard" : Pas de cookie, le popup réapparaîtra à la prochaine connexion
+      },
+      getCookie(name) {
+        const value = document.cookie.split('; ').find((part) => part.startsWith(name + '='));
+        if (!value) return null;
+        return decodeURIComponent(value.split('=')[1] || '');
+      },
+      setCookie(name, value, days) {
+        const maxAge = days * 24 * 60 * 60;
+        document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; path=/`;
       }
     };
 
