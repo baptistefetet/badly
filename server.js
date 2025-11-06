@@ -14,7 +14,7 @@ const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const PASSWORD_SALT = 'badly-static-salt-v1';
 
 // Limits to prevent excessive data file growth
-const MAX_USERS = 32;
+const MAX_USERS = 64;
 const MAX_SESSIONS = 8;
 
 // In-memory cache for data.json

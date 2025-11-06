@@ -555,12 +555,20 @@
           </select>
         </label>
         <label>
-          Durée (minutes)
-          <input name="duration" type="number" min="30" max="300" step="15" value="90" required>
+          Durée
+          <select name="duration" required>
+            <option value="45">45 minutes</option>
+            <option value="60">1 heure</option>
+            <option value="90" selected>1 heure 30</option>
+            <option value="120">2 heures</option>
+          </select>
         </label>
         <label>
           Nombre de participants
-          <input name="capacity" type="number" min="1" max="12" value="8" required>
+          <select name="capacity" required>
+            <option value="4">4 joueurs</option>
+            <option value="8" selected>8 joueurs</option>
+          </select>
         </label>
         <label>
           Prix par participant (EUR)
@@ -686,6 +694,13 @@
             return;
           }
 
+          // Vérifier que l'heure est un multiple de 15 minutes
+          const minutes = datetime.getMinutes();
+          if (minutes % 15 !== 0) {
+            this.toast('L\'heure doit être un multiple de 15 minutes (ex: 9h00, 9h15, 9h30, 9h45)', true);
+            return;
+          }
+
           this.createSession({
             club,
             datetime: datetime.toISOString(),
@@ -800,6 +815,12 @@
         });
         const datetimeInput = this.$sessionForm.elements.namedItem('datetime');
         const now = new Date();
+        // Arrondir au prochain quart d'heure
+        const minutes = now.getMinutes();
+        const roundedMinutes = Math.ceil(minutes / 15) * 15;
+        now.setMinutes(roundedMinutes);
+        now.setSeconds(0);
+        now.setMilliseconds(0);
         const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
         datetimeInput.value = local.toISOString().slice(0, 16);
         this.$sessionModal.classList.remove('hidden');
