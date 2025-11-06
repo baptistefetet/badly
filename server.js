@@ -3,15 +3,39 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Charger les variables d'environnement depuis .env
+try {
+  require('dotenv').config();
+} catch (err) {
+  console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
+}
+
 const DEBUG = false;
 const PORT = 3001;
 const DATA_FILE = path.join(__dirname, 'data.json');
 const INDEX_FILE = path.join(__dirname, 'index.html');
 const MANIFEST_FILE = path.join(__dirname, 'manifest.json');
 const FAVICON_FILE = path.join(__dirname, 'favicon.png');
+const SW_FILE = path.join(__dirname, 'service-worker.js');
 const COOKIE_NAME = 'badlyAuth';
 const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const PASSWORD_SALT = 'badly-static-salt-v1';
+
+// Configuration Web Push (VAPID keys - à générer avec: npx web-push generate-vapid-keys)
+// IMPORTANT: Remplacez ces clés par vos propres clés VAPID
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_EMAIL = process.env.VAPID_EMAIL;
+
+let webpush;
+try {
+  webpush = require('web-push');
+  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  console.log('Web Push configuré');
+} catch (err) {
+  console.warn('web-push non disponible - les notifications push ne fonctionneront pas');
+  console.warn('Installez avec: npm install web-push');
+}
 
 // Limits to prevent excessive data file growth
 const MAX_USERS = 64;
@@ -38,7 +62,8 @@ function ensureDataFile() {
     const seed = {
       users: [],
       sessions: [],
-      clubs: []
+      clubs: [],
+      pushSubscriptions: []
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(seed, null, 2));
     // Initialize cache with seed data
@@ -62,6 +87,7 @@ function readData() {
   if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = [];
   if (!parsed.sessions || !Array.isArray(parsed.sessions)) parsed.sessions = [];
   if (!parsed.clubs || !Array.isArray(parsed.clubs)) parsed.clubs = [];
+  if (!parsed.pushSubscriptions || !Array.isArray(parsed.pushSubscriptions)) parsed.pushSubscriptions = [];
   
   // Cache the data
   dataCache = parsed;
@@ -471,6 +497,11 @@ async function handleCreateSession(req, res) {
   data.sessions.push(session);
   writeData(data);
 
+  // Envoyer les notifications push
+  sendPushNotifications(session, data).catch((err) => {
+    debugError('Erreur lors de l\'envoi des notifications push:', err);
+  });
+
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
 
@@ -859,6 +890,145 @@ function serveStaticFile(res, filePath, contentType) {
   });
 }
 
+async function sendPushNotifications(session, data) {
+  if (!webpush) {
+    debugLog('web-push non disponible, notifications désactivées');
+    return;
+  }
+
+  const subscriptions = data.pushSubscriptions || [];
+  if (subscriptions.length === 0) {
+    debugLog('Aucun abonnement push enregistré');
+    return;
+  }
+
+  const sessionDate = new Date(session.datetime);
+  const dateFormatter = new Intl.DateTimeFormat('fr-FR', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const notificationPayload = {
+    title: '🏸 Nouvelle session de bad !',
+    body: `${session.club} - ${dateFormatter.format(sessionDate)}\nNiveau: ${session.level}\nOrganisé par ${session.organizer}`,
+    tag: `session-${session.id}`,
+    url: '/'
+  };
+
+  const payload = JSON.stringify(notificationPayload);
+  const failedSubscriptions = [];
+
+  for (const subscription of subscriptions) {
+    try {
+      await webpush.sendNotification(subscription, payload);
+      debugLog(`Notification envoyée à ${subscription.endpoint.substring(0, 50)}...`);
+    } catch (err) {
+      debugError(`Échec d'envoi de notification:`, err);
+      // Si l'abonnement a expiré (410) ou est invalide, le marquer pour suppression
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        failedSubscriptions.push(subscription);
+      }
+    }
+  }
+
+  // Nettoyer les abonnements expirés
+  if (failedSubscriptions.length > 0) {
+    data.pushSubscriptions = subscriptions.filter(
+      (sub) => !failedSubscriptions.some(
+        (failed) => failed.endpoint === sub.endpoint
+      )
+    );
+    writeData(data);
+    debugLog(`${failedSubscriptions.length} abonnements expirés supprimés`);
+  }
+}
+
+async function handleSubscribePush(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data, user } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || !payload.endpoint || !payload.keys) {
+    sendError(res, 400, 'Abonnement push invalide');
+    return;
+  }
+
+  // Vérifier si l'abonnement existe déjà
+  const exists = data.pushSubscriptions.some(
+    (sub) => sub.endpoint === payload.endpoint
+  );
+
+  if (!exists) {
+    // Ajouter l'utilisateur à l'abonnement pour pouvoir le nettoyer si l'utilisateur se désinscrit
+    const subscription = {
+      ...payload,
+      user: user.name,
+      createdAt: new Date().toISOString()
+    };
+    data.pushSubscriptions.push(subscription);
+    writeData(data);
+    debugLog(`Nouvel abonnement push enregistré pour ${user.name}`);
+  }
+
+  sendJson(res, 200, { ok: true });
+}
+
+async function handleUnsubscribePush(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || !payload.endpoint) {
+    sendError(res, 400, 'Endpoint manquant');
+    return;
+  }
+
+  const beforeCount = data.pushSubscriptions.length;
+  data.pushSubscriptions = data.pushSubscriptions.filter(
+    (sub) => sub.endpoint !== payload.endpoint
+  );
+
+  if (data.pushSubscriptions.length < beforeCount) {
+    writeData(data);
+    debugLog('Abonnement push supprimé');
+  }
+
+  sendJson(res, 200, { ok: true });
+}
+
+function handleGetVapidPublicKey(req, res) {
+  sendJson(res, 200, { ok: true, publicKey: VAPID_PUBLIC_KEY });
+}
+
 function requestHandler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
@@ -880,6 +1050,18 @@ function requestHandler(req, res) {
   if (req.method === 'GET' && pathname === '/favicon.png') {
     debugLog(`${logPrefix} -> 200`);
     serveStaticFile(res, FAVICON_FILE, 'image/png');
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/service-worker.js') {
+    debugLog(`${logPrefix} -> 200`);
+    serveStaticFile(res, SW_FILE, 'application/javascript; charset=utf-8');
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/vapidPublicKey') {
+    debugLog(`${logPrefix}`);
+    handleGetVapidPublicKey(req, res);
     return;
   }
 
@@ -970,6 +1152,24 @@ function requestHandler(req, res) {
   if (req.method === 'POST' && pathname === '/editSession') {
     debugLog(`${logPrefix}`);
     handleEditSession(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/subscribePush') {
+    debugLog(`${logPrefix}`);
+    handleSubscribePush(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/unsubscribePush') {
+    debugLog(`${logPrefix}`);
+    handleUnsubscribePush(req, res).catch((err) => {
       debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
