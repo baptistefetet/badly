@@ -723,6 +723,130 @@ async function handleRemoveGuest(req, res) {
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
 
+async function handleEditSession(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data, user } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || typeof payload.sessionId !== 'string') {
+    sendError(res, 400, 'Identifiant session manquant');
+    return;
+  }
+
+  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  if (!session) {
+    sendError(res, 404, 'Session introuvable');
+    return;
+  }
+
+  if (session.organizer !== user.name) {
+    sendError(res, 403, 'Seul l\'organisateur peut modifier la session');
+    return;
+  }
+
+  if (sessionHasStarted(session)) {
+    sendError(res, 400, 'La session est déjà commencée');
+    return;
+  }
+
+  const { datetime, durationMinutes, club, level, capacity, pricePerParticipant } = payload;
+
+  if (typeof datetime !== 'string') {
+    sendError(res, 400, 'Date/heure invalide');
+    return;
+  }
+
+  const parsedDate = new Date(datetime);
+  if (Number.isNaN(parsedDate.getTime())) {
+    sendError(res, 400, 'Date/heure invalide');
+    return;
+  }
+
+  const now = Date.now();
+  if (parsedDate.getTime() < now - 5 * 60 * 1000) {
+    sendError(res, 400, 'La session doit être dans le futur');
+    return;
+  }
+
+  const duration = Number(durationMinutes);
+  if (!Number.isFinite(duration) || duration <= 0 || duration > 300) {
+    sendError(res, 400, 'Durée invalide');
+    return;
+  }
+
+  const normalizedClub = typeof club === 'string' ? club.trim() : '';
+  if (!normalizedClub) {
+    sendError(res, 400, 'Club invalide');
+    return;
+  }
+  if (data.clubs.length && !data.clubs.includes(normalizedClub)) {
+    sendError(res, 400, 'Club inconnu');
+    return;
+  }
+
+  const allowedLevels = ['débutant', 'débutant/moyen', 'moyen', 'confirmé'];
+  const normalizedLevel = typeof level === 'string' ? level.trim() : '';
+  if (!normalizedLevel || !allowedLevels.includes(normalizedLevel)) {
+    sendError(res, 400, 'Niveau invalide');
+    return;
+  }
+
+  const normalizedCapacity = Number(capacity);
+  if (!Number.isInteger(normalizedCapacity) || normalizedCapacity < 1 || normalizedCapacity > 12) {
+    sendError(res, 400, 'Capacité invalide');
+    return;
+  }
+
+  // Vérifier que la nouvelle capacité est suffisante pour les participants actuels
+  const currentTotal = session.participants.length + 1 + (session.guests || 0);
+  if (normalizedCapacity < currentTotal) {
+    sendError(res, 400, `La capacité ne peut être inférieure au nombre actuel de participants (${currentTotal})`);
+    return;
+  }
+
+  const price = Number(pricePerParticipant);
+  if (!Number.isFinite(price) || price < 0) {
+    sendError(res, 400, 'Prix invalide');
+    return;
+  }
+  const roundedPrice = Math.round(price * 100) / 100;
+
+  // Vérifier qu'une autre session n'existe pas déjà pour ce club à cette date
+  const conflictingSession = data.sessions.find((s) => 
+    s.id !== session.id && 
+    s.club === normalizedClub && 
+    s.datetime === parsedDate.toISOString()
+  );
+  if (conflictingSession) {
+    sendError(res, 400, 'Une session existe déjà pour ce club à cette date');
+    return;
+  }
+
+  // Mettre à jour la session
+  session.datetime = parsedDate.toISOString();
+  session.durationMinutes = duration;
+  session.club = normalizedClub;
+  session.level = normalizedLevel;
+  session.capacity = normalizedCapacity;
+  session.pricePerParticipant = roundedPrice;
+
+  writeData(data);
+
+  sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
+}
+
 function serveStaticFile(res, filePath, contentType) {
   fs.readFile(filePath, (err, buffer) => {
     if (err) {
@@ -837,6 +961,15 @@ function requestHandler(req, res) {
   if (req.method === 'POST' && pathname === '/removeGuest') {
     debugLog(`${logPrefix}`);
     handleRemoveGuest(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/editSession') {
+    debugLog(`${logPrefix}`);
+    handleEditSession(req, res).catch((err) => {
       debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });

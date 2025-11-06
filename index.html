@@ -535,8 +535,9 @@
 
   <div id="session-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
-      <h2>Nouvelle session</h2>
+      <h2 id="session-modal-title">Nouvelle session</h2>
       <form id="session-form">
+        <input type="hidden" name="sessionId" value="">
         <label>
           Club
           <select name="club" required></select>
@@ -576,7 +577,8 @@
         </label>
         <div class="form-actions">
           <button type="button" id="session-cancel" class="btn-secondary">Annuler</button>
-          <button type="submit" class="btn-primary">Créer</button>
+          <button type="button" id="session-delete" class="btn-danger hidden">Supprimer</button>
+          <button type="submit" id="session-submit" class="btn-primary">Créer</button>
         </div>
       </form>
     </div>
@@ -612,6 +614,9 @@
         this.$signupForm = document.getElementById('signup-form');
         this.$sessionForm = document.getElementById('session-form');
         this.$sessionCancel = document.getElementById('session-cancel');
+        this.$sessionDelete = document.getElementById('session-delete');
+        this.$sessionSubmit = document.getElementById('session-submit');
+        this.$sessionModalTitle = document.getElementById('session-modal-title');
         this.$sessionsList = document.getElementById('sessions-list');
         this.$sessionsEmpty = document.getElementById('sessions-empty');
         this.$toastContainer = document.getElementById('toast-container');
@@ -638,6 +643,7 @@
         this.$signoutButton.addEventListener('click', () => this.signout());
         this.$createButton.addEventListener('click', () => this.openSessionModal());
         this.$sessionCancel.addEventListener('click', () => this.closeSessionModal());
+        this.$sessionDelete.addEventListener('click', () => this.deleteSessionFromModal());
         this.$backdrop.addEventListener('click', () => {
           if (!this.$sessionModal.classList.contains('hidden')) {
             this.closeSessionModal();
@@ -676,6 +682,7 @@
         this.$sessionForm.addEventListener('submit', (event) => {
           event.preventDefault();
           const formData = new FormData(this.$sessionForm);
+          const sessionId = formData.get('sessionId');
           const club = formData.get('club');
           const datetimeValue = formData.get('datetime');
           const level = formData.get('level');
@@ -701,14 +708,23 @@
             return;
           }
 
-          this.createSession({
+          const payload = {
             club,
             datetime: datetime.toISOString(),
             level,
             durationMinutes: duration,
             capacity,
             pricePerParticipant: price
-          });
+          };
+
+          if (sessionId) {
+            // Mode édition
+            payload.sessionId = sessionId;
+            this.editSession(payload);
+          } else {
+            // Mode création
+            this.createSession(payload);
+          }
         });
 
         this.$authTabs.forEach((button) => {
@@ -799,11 +815,12 @@
       closeDropdown() {
         this.$userDropdown.classList.add('hidden');
       },
-      openSessionModal() {
+      openSessionModal(session = null) {
         if (!this.state.clubs.length) {
           this.toast('Aucun club référencé. Ajoutez-en dans data.json.', true);
           return;
         }
+        
         this.$sessionForm.reset();
         const select = this.$sessionForm.elements.namedItem('club');
         select.innerHTML = '';
@@ -813,16 +830,43 @@
           option.textContent = club;
           select.appendChild(option);
         });
-        const datetimeInput = this.$sessionForm.elements.namedItem('datetime');
-        const now = new Date();
-        // Arrondir au prochain quart d'heure
-        const minutes = now.getMinutes();
-        const roundedMinutes = Math.ceil(minutes / 15) * 15;
-        now.setMinutes(roundedMinutes);
-        now.setSeconds(0);
-        now.setMilliseconds(0);
-        const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-        datetimeInput.value = local.toISOString().slice(0, 16);
+
+        if (session) {
+          // Mode édition
+          this.$sessionModalTitle.textContent = 'Modifier la session';
+          this.$sessionSubmit.textContent = 'Enregistrer';
+          this.$sessionDelete.classList.remove('hidden');
+          
+          // Remplir le formulaire avec les données de la session
+          this.$sessionForm.elements.namedItem('sessionId').value = session.id;
+          this.$sessionForm.elements.namedItem('club').value = session.club;
+          this.$sessionForm.elements.namedItem('level').value = session.level;
+          this.$sessionForm.elements.namedItem('duration').value = session.durationMinutes;
+          this.$sessionForm.elements.namedItem('capacity').value = session.capacity;
+          this.$sessionForm.elements.namedItem('price').value = session.pricePerParticipant;
+          
+          const sessionDate = new Date(session.datetime);
+          const local = new Date(sessionDate.getTime() - sessionDate.getTimezoneOffset() * 60000);
+          this.$sessionForm.elements.namedItem('datetime').value = local.toISOString().slice(0, 16);
+        } else {
+          // Mode création
+          this.$sessionModalTitle.textContent = 'Nouvelle session';
+          this.$sessionSubmit.textContent = 'Créer';
+          this.$sessionDelete.classList.add('hidden');
+          this.$sessionForm.elements.namedItem('sessionId').value = '';
+          
+          const datetimeInput = this.$sessionForm.elements.namedItem('datetime');
+          const now = new Date();
+          // Arrondir au prochain quart d'heure
+          const minutes = now.getMinutes();
+          const roundedMinutes = Math.ceil(minutes / 15) * 15;
+          now.setMinutes(roundedMinutes);
+          now.setSeconds(0);
+          now.setMilliseconds(0);
+          const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+          datetimeInput.value = local.toISOString().slice(0, 16);
+        }
+        
         this.$sessionModal.classList.remove('hidden');
         this.$backdrop.classList.remove('hidden');
       },
@@ -928,11 +972,19 @@
           }
 
           if (this.state.user && (isOrganizer || isGod)) {
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'btn-danger';
-            deleteBtn.textContent = 'Supprimer';
-            deleteBtn.addEventListener('click', () => this.deleteSession(session.id));
-            actions.appendChild(deleteBtn);
+            if (isOrganizer && !hasStarted) {
+              const editBtn = document.createElement('button');
+              editBtn.className = 'btn-primary';
+              editBtn.textContent = 'Modifier';
+              editBtn.addEventListener('click', () => this.openSessionModal(session));
+              actions.appendChild(editBtn);
+            } else if (isGod) {
+              const deleteBtn = document.createElement('button');
+              deleteBtn.className = 'btn-danger';
+              deleteBtn.textContent = 'Supprimer';
+              deleteBtn.addEventListener('click', () => this.deleteSession(session.id));
+              actions.appendChild(deleteBtn);
+            }
           }
 
           if (this.state.user && isOrganizer && !hasStarted) {
@@ -979,6 +1031,31 @@
         try {
           await this.api('/createSession', payload);
           this.toast('Session créée');
+          this.closeSessionModal();
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async editSession(payload) {
+        try {
+          await this.api('/editSession', payload);
+          this.toast('Session modifiée');
+          this.closeSessionModal();
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async deleteSessionFromModal() {
+        const sessionId = this.$sessionForm.elements.namedItem('sessionId').value;
+        if (!sessionId) return;
+        
+        if (!confirm('Supprimer cette session ?')) return;
+        
+        try {
+          await this.api('/deleteSession', { sessionId });
+          this.toast('Session supprimée');
           this.closeSessionModal();
           this.refreshSessions();
         } catch (err) {
