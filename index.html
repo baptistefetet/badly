@@ -33,6 +33,10 @@
       min-height: 100vh;
     }
 
+    body.modal-open {
+      overflow: hidden;
+    }
+
     a {
       color: inherit;
     }
@@ -770,6 +774,7 @@
         this.$installInstructions = document.getElementById('install-instructions');
         this.$installDismiss = document.getElementById('install-dismiss');
         this.$installUnderstood = document.getElementById('install-understood');
+        this.$main = document.querySelector('main');
       },
       bindEvents() {
         document.addEventListener('click', (event) => {
@@ -1018,21 +1023,27 @@
         
         this.$sessionModal.classList.remove('hidden');
         this.$backdrop.classList.remove('hidden');
+        document.body.classList.add('modal-open');
       },
       closeSessionModal() {
         this.$sessionModal.classList.add('hidden');
         this.$backdrop.classList.add('hidden');
         this.$sessionForm.reset();
+        document.body.classList.remove('modal-open');
       },
       showAuthModal() {
         this.$authModal.classList.remove('hidden');
         this.$backdrop.classList.remove('hidden');
+        this.$main.classList.add('hidden');
+        document.body.classList.add('modal-open');
       },
       hideAuthModal() {
         this.$authModal.classList.add('hidden');
         this.$backdrop.classList.add('hidden');
+        this.$main.classList.remove('hidden');
         this.$signinForm.reset();
         this.$signupForm.reset();
+        document.body.classList.remove('modal-open');
       },
       async refreshSessions() {
         try {
@@ -1401,9 +1412,11 @@
         }
 
         this.$installPrompt.classList.remove('hidden');
+        document.body.classList.add('modal-open');
       },
       dismissInstallPrompt(permanently = false) {
         this.$installPrompt.classList.add('hidden');
+        document.body.classList.remove('modal-open');
         if (permanently) {
           // "J'ai compris !" : Enregistrer le cookie pour ne pas réafficher pendant 1 an
           this.setCookie('badlyInstallPromptSeen', 'true', 365);
