@@ -1053,7 +1053,7 @@
         }
         this.$sessionsEmpty.classList.add('hidden');
         const now = Date.now();
-        const dateFormatter = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const dateFormatter = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' });
         const timeFormatter = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
         this.state.sessions.forEach((session) => {
           const card = document.createElement('article');
@@ -1068,7 +1068,7 @@
           const header = document.createElement('header');
           header.innerHTML = `
             <div class="session-title">${session.club} <span>${dateFormatter.format(sessionDate)} ${timeFormatter.format(sessionDate)}</span></div>
-            <span class="pill">${participantCount}/${session.capacity} joueurs</span>
+            <span class="pill">${participantCount}/${session.capacity}</span>
           `;
 
           const meta = document.createElement('div');

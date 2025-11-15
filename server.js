@@ -919,8 +919,7 @@ function formatSessionDate(session) {
   const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
     weekday: 'short',
     day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+    month: 'short',
     hour: '2-digit',
     minute: '2-digit'
   });
