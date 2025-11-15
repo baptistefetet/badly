@@ -1093,7 +1093,6 @@
           const actions = document.createElement('div');
           actions.className = 'session-actions';
           const isOrganizer = this.state.user && session.organizer === this.state.user.name;
-          const isGod = this.state.user && this.state.user.normalized === 'god';
           const isParticipant = this.state.user && participants.includes(this.state.user.name);
           const hasStarted = sessionDate.getTime() <= now;
           const isFull = participantCount >= session.capacity;
@@ -1120,20 +1119,12 @@
             }
           }
 
-          if (this.state.user && (isOrganizer || isGod)) {
-            if (isOrganizer && !hasStarted) {
-              const editBtn = document.createElement('button');
-              editBtn.className = 'btn-primary';
-              editBtn.textContent = 'Modifier';
-              editBtn.addEventListener('click', () => this.openSessionModal(session));
-              actions.appendChild(editBtn);
-            } else if (isGod) {
-              const deleteBtn = document.createElement('button');
-              deleteBtn.className = 'btn-danger';
-              deleteBtn.textContent = 'Supprimer';
-              deleteBtn.addEventListener('click', () => this.deleteSession(session.id));
-              actions.appendChild(deleteBtn);
-            }
+          if (this.state.user && isOrganizer && !hasStarted) {
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-primary';
+            editBtn.textContent = 'Modifier';
+            editBtn.addEventListener('click', () => this.openSessionModal(session));
+            actions.appendChild(editBtn);
           }
 
           if (this.state.user && isOrganizer && !hasStarted) {

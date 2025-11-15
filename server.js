@@ -535,10 +535,9 @@ async function handleDeleteSession(req, res) {
 
   const session = data.sessions[index];
   const isOrganizer = session.organizer === user.name;
-  const isGod = user.normalized === 'god';
 
-  if (!isOrganizer && !isGod) {
-    sendError(res, 403, 'Action interdite');
+  if (!isOrganizer) {
+    sendError(res, 403, 'Seul l\'organisateur peut supprimer la session');
     return;
   }
 
