@@ -498,7 +498,7 @@ async function handleCreateSession(req, res) {
   writeData(data);
 
   // Envoyer les notifications push
-  sendPushNotifications(session, data).catch((err) => {
+  sendNewSessionNotification(session, data).catch((err) => {
     debugError('Erreur lors de l\'envoi des notifications push:', err);
   });
 
@@ -646,8 +646,21 @@ async function handleLeaveSession(req, res) {
     return;
   }
 
+  // Vérifier si la session était pleine avant le départ
+  const participantsBeforeLeaving = session.participants.length;
+  const guestsCount = session.guests || 0;
+  const totalBeforeLeaving = participantsBeforeLeaving + 1 + guestsCount; // +1 pour l'organisateur
+  const wasSessionFull = totalBeforeLeaving >= session.capacity;
+
   session.participants = session.participants.filter((name) => name !== user.name);
   writeData(data);
+
+  // Si la session était pleine et qu'une place vient de se libérer, notifier
+  if (wasSessionFull) {
+    sendSpotAvailableNotification(session, data).catch((err) => {
+      debugError('Erreur lors de l\'envoi des notifications push:', err);
+    });
+  }
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -748,8 +761,19 @@ async function handleRemoveGuest(req, res) {
     return;
   }
 
+  // Vérifier si la session était pleine avant de retirer l'invité
+  const totalBeforeRemoving = session.participants.length + 1 + currentGuests; // +1 pour l'organisateur
+  const wasSessionFull = totalBeforeRemoving >= session.capacity;
+
   session.guests = currentGuests - 1;
   writeData(data);
+
+  // Si la session était pleine et qu'une place vient de se libérer, notifier
+  if (wasSessionFull) {
+    sendSpotAvailableNotification(session, data).catch((err) => {
+      debugError('Erreur lors de l\'envoi des notifications push:', err);
+    });
+  }
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -890,7 +914,22 @@ function serveStaticFile(res, filePath, contentType) {
   });
 }
 
-async function sendPushNotifications(session, data) {
+// Formater la date de session pour les notifications
+function formatSessionDate(session) {
+  const sessionDate = new Date(session.datetime);
+  const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  return dateFormatter.format(sessionDate);
+}
+
+// Fonction bas niveau pour envoyer une notification push
+async function sendPushNotifications(data, title, body, tag) {
   if (!webpush) {
     debugLog('web-push non disponible, notifications désactivées');
     return;
@@ -902,19 +941,10 @@ async function sendPushNotifications(session, data) {
     return;
   }
 
-  const sessionDate = new Date(session.datetime);
-  const dateFormatter = new Intl.DateTimeFormat('fr-FR', { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
   const notificationPayload = {
-    title: '🏸 Nouvelle session de bad !',
-    body: `${session.club} - ${dateFormatter.format(sessionDate)}\nNiveau: ${session.level}\nOrganisé par ${session.organizer}`,
-    tag: `session-${session.id}`,
+    title,
+    body,
+    tag,
     url: '/'
   };
 
@@ -944,6 +974,26 @@ async function sendPushNotifications(session, data) {
     writeData(data);
     debugLog(`${failedSubscriptions.length} abonnements expirés supprimés`);
   }
+}
+
+// Notification pour une nouvelle session
+async function sendNewSessionNotification(session, data) {
+  const formattedDate = formatSessionDate(session);
+  const title = '🏸 Nouvelle session de bad !';
+  const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}\nOrganisé par ${session.organizer}`;
+  const tag = `session-${session.id}`;
+
+  return sendPushNotifications(data, title, body, tag);
+}
+
+// Notification quand une place se libère
+async function sendSpotAvailableNotification(session, data) {
+  const formattedDate = formatSessionDate(session);
+  const title = '🎾 Une place s\'est libérée !';
+  const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}`;
+  const tag = `session-${session.id}-available`;
+
+  return sendPushNotifications(data, title, body, tag);
 }
 
 async function handleSubscribePush(req, res) {
