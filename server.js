@@ -599,6 +599,11 @@ async function handleJoinSession(req, res) {
   session.participants.push(user.name);
   writeData(data);
 
+  // Notifier l'organisateur
+  sendParticipantJoinedNotification(session, user.name, data).catch((err) => {
+    debugError('Erreur lors de l\'envoi de la notification à l\'organisateur:', err);
+  });
+
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
 
@@ -927,15 +932,20 @@ function formatSessionDate(session) {
 }
 
 // Fonction bas niveau pour envoyer une notification push
-async function sendPushNotifications(data, title, body, tag) {
+async function sendPushNotifications(data, title, body, tag, targetUser = null) {
   if (!webpush) {
     debugLog('web-push non disponible, notifications désactivées');
     return;
   }
 
-  const subscriptions = data.pushSubscriptions || [];
+  let subscriptions = data.pushSubscriptions || [];
+  if (targetUser) {
+    const normalizedTarget = targetUser.toLowerCase();
+    subscriptions = subscriptions.filter(sub => sub.user && sub.user.toLowerCase() === normalizedTarget);
+  }
+
   if (subscriptions.length === 0) {
-    debugLog('Aucun abonnement push enregistré');
+    debugLog(targetUser ? `Aucun abonnement push trouvé pour ${targetUser}` : 'Aucun abonnement push enregistré');
     return;
   }
 
@@ -964,7 +974,7 @@ async function sendPushNotifications(data, title, body, tag) {
 
   // Nettoyer les abonnements expirés
   if (failedSubscriptions.length > 0) {
-    data.pushSubscriptions = subscriptions.filter(
+    data.pushSubscriptions = data.pushSubscriptions.filter(
       (sub) => !failedSubscriptions.some(
         (failed) => failed.endpoint === sub.endpoint
       )
@@ -994,6 +1004,16 @@ async function sendSpotAvailableNotification(session, data) {
   return sendPushNotifications(data, title, body, tag);
 }
 
+// Notification pour l'organisateur quand quelqu'un s'inscrit
+async function sendParticipantJoinedNotification(session, participantName, data) {
+  const formattedDate = formatSessionDate(session);
+  const title = '🏸 Nouveau participant !';
+  const body = `${participantName} s'est inscrit à ta session du ${formattedDate}`;
+  const tag = `session-${session.id}-join`;
+
+  return sendPushNotifications(data, title, body, tag, session.organizer);
+}
+
 async function handleSubscribePush(req, res) {
   if (!validateContentType(req)) {
     sendError(res, 400, 'Content-Type must be application/json');
@@ -1017,13 +1037,29 @@ async function handleSubscribePush(req, res) {
     return;
   }
 
-  // Vérifier si l'abonnement existe déjà
-  const exists = data.pushSubscriptions.some(
+  // Mettre à jour l'abonnement existant (pour changer d'utilisateur) ou en créer un nouveau
+  const index = data.pushSubscriptions.findIndex(
     (sub) => sub.endpoint === payload.endpoint
   );
 
-  if (!exists) {
-    // Ajouter l'utilisateur à l'abonnement pour pouvoir le nettoyer si l'utilisateur se désinscrit
+  if (index !== -1) {
+    const existing = data.pushSubscriptions[index];
+    const updated = {
+      ...existing,
+      ...payload,
+      user: user.name,
+      updatedAt: new Date().toISOString()
+    };
+    const hasChanged =
+      existing.user !== updated.user ||
+      JSON.stringify(existing.keys) !== JSON.stringify(updated.keys) ||
+      existing.expirationTime !== updated.expirationTime;
+    if (hasChanged) {
+      data.pushSubscriptions[index] = updated;
+      writeData(data);
+      debugLog(`Abonnement push mis à jour pour ${user.name}`);
+    }
+  } else {
     const subscription = {
       ...payload,
       user: user.name,
