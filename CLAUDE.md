@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important Instructions for AI Agents
+
+**DO NOT RUN THE SERVER**: After making code modifications, DO NOT attempt to test or run the server (`node server.js`). The user will handle testing and execution manually. Your role is to make the requested changes and explain what was done, not to verify the code by running it.
+
 ## Project Overview
 
 Badly is a badminton session planning application for Lyon, France. It's a Progressive Web App (PWA) that allows users to create, join, and manage badminton sessions at various clubs.
@@ -17,11 +21,26 @@ Badly is a badminton session planning application for Lyon, France. It's a Progr
 ### Data Architecture
 The application uses a simple file-based JSON database (`data.json`) with four main entities:
 - **users**: User accounts with normalized names and hashed passwords
-- **sessions**: Badminton sessions with datetime, club, level, capacity, participants
+- **sessions**: Badminton sessions with datetime, club, level, capacity, participants, guests, reminderSent
 - **clubs**: List of available badminton clubs
-- **pushSubscriptions**: Web push notification subscriptions
+- **pushSubscriptions**: Web push notification subscriptions (linked to users)
 
 The server implements an in-memory cache (`dataCache`) for `data.json` to optimize read performance. The cache is updated synchronously on every write operation.
+
+#### Session Schema
+Sessions contain the following fields:
+- `id`: Unique UUID
+- `datetime`: ISO 8601 datetime string
+- `durationMinutes`: Session duration (0-300)
+- `club`: Club name (must exist in clubs array)
+- `level`: Skill level (débutant, débutant/moyen, moyen, confirmé)
+- `capacity`: Maximum participants (1-12)
+- `pricePerParticipant`: Price per person (rounded to 2 decimals)
+- `organizer`: Username of session creator
+- `participants`: Array of participant usernames
+- `guests`: Number of anonymous guests (organizer-managed)
+- `createdAt`: ISO 8601 creation timestamp
+- `reminderSent`: Boolean flag to track if 45-minute reminder was sent
 
 ### Key Design Patterns
 1. **Single File Architecture**: All backend logic in `server.js`, all frontend logic in `index.html`
@@ -74,11 +93,20 @@ VAPID_EMAIL=mailto:your@email.com
 When to send notifications:
 1. **New session created**: Notify all subscribed users
 2. **Spot becomes available**: When participant leaves or guest removed from a full session
+3. **Participant joins**: Notify organizer when someone joins their session
+4. **Session reminder**: Notify all participants (organizer + participants) 45 minutes before session start
 
 The service worker handles:
 - Displaying notifications with vibration
 - Setting app badge count
 - Opening/focusing the app when notification clicked
+
+### Session Reminders
+- Automatic reminders sent 45 minutes before session start (`REMINDER_MINUTES_BEFORE_START`)
+- Background process checks every 60 seconds for upcoming sessions (`REMINDER_CHECK_INTERVAL_MS`)
+- Sessions have a `reminderSent` field to prevent duplicate notifications
+- If session datetime is edited, `reminderSent` is reset to `false` to trigger a new reminder
+- Reminders are sent to all session participants (organizer + participants list)
 
 ### Date Formatting
 - Server stores dates in ISO 8601 format
@@ -86,8 +114,8 @@ The service worker handles:
 - Datetime input must be in 15-minute increments
 
 ### Data Constraints
-- Max 64 users (`MAX_USERS`)
-- Max 8 sessions (`MAX_SESSIONS`)
+- Max 128 users (`MAX_USERS`)
+- Max 16 sessions (`MAX_SESSIONS`)
 - Username: 3-20 chars, alphanumeric + underscore/hyphen
 - Password: 6-64 chars
 - Session capacity: 1-12 players
@@ -107,10 +135,10 @@ The service worker handles:
 
 **Authenticated:**
 - `GET /listSessions` - Get all sessions + clubs
-- `POST /createSession` - Create new session (triggers push notification)
-- `POST /editSession` - Modify session (organizer only)
+- `POST /createSession` - Create new session (triggers push notification to all users)
+- `POST /editSession` - Modify session (organizer only, resets reminderSent if datetime changes)
 - `POST /deleteSession` - Delete session (organizer only)
-- `POST /joinSession` - Join as participant
+- `POST /joinSession` - Join as participant (triggers notification to organizer)
 - `POST /leaveSession` - Leave session (triggers notification if was full)
 - `POST /addGuest` - Add anonymous guest (organizer only)
 - `POST /removeGuest` - Remove guest (organizer only, triggers notification if was full)
@@ -153,9 +181,13 @@ The server allows sessions scheduled up to 5 minutes in the past to handle clock
 Manually edit `data.json` and add club names to the `clubs` array. The frontend dynamically populates the dropdown from this list.
 
 ### Modifying Notification Logic
-Edit both:
-1. `sendNewSessionNotification()` or `sendSpotAvailableNotification()` in server.js
-2. Service worker notification display in `service-worker.js`
+Notification functions in server.js:
+1. `sendNewSessionNotification()` - when a session is created
+2. `sendSpotAvailableNotification()` - when a spot becomes available in a full session
+3. `sendParticipantJoinedNotification()` - when someone joins a session (organizer only)
+4. `sendSessionReminderNotification()` - 45 minutes before session start (all participants)
+
+All use the low-level `sendPushNotifications()` function. Also update service worker notification display in `service-worker.js`.
 
 ### Debugging
 Set `DEBUG = true` in server.js to enable console logging for all requests and push notification operations.

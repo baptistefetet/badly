@@ -59,7 +59,13 @@ function debugError(...args) {
   }
 }
 
-function ensureDataFile() {
+function readData() {
+  // Return cached data if available
+  if (dataCache !== null) {
+    return dataCache;
+  }
+
+  // Initialize data file if it doesn't exist
   if (!fs.existsSync(DATA_FILE)) {
     const seed = {
       users: [],
@@ -68,17 +74,10 @@ function ensureDataFile() {
       pushSubscriptions: []
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(seed, null, 2));
-    // Initialize cache with seed data
     dataCache = seed;
+    return seed;
   }
-}
 
-function readData() {
-  // Return cached data if available
-  if (dataCache !== null) {
-    return dataCache;
-  }
-  
   const raw = fs.readFileSync(DATA_FILE, 'utf8');
   let parsed;
   try {
@@ -90,7 +89,7 @@ function readData() {
   if (!parsed.sessions || !Array.isArray(parsed.sessions)) parsed.sessions = [];
   if (!parsed.clubs || !Array.isArray(parsed.clubs)) parsed.clubs = [];
   if (!parsed.pushSubscriptions || !Array.isArray(parsed.pushSubscriptions)) parsed.pushSubscriptions = [];
-  
+
   // Cache the data
   dataCache = parsed;
   return parsed;
@@ -282,7 +281,6 @@ async function handleSignup(req, res) {
     return;
   }
 
-  ensureDataFile();
   const data = readData();
   const normalized = name.toLowerCase();
 
@@ -330,7 +328,6 @@ async function handleSignin(req, res) {
   }
 
   const name = payload.name.trim();
-  ensureDataFile();
   const data = readData();
   const user = findUser(data, name);
   if (!user) {
@@ -363,7 +360,6 @@ async function handleSignout(req, res) {
 
 function requireAuth(req, res) {
   try {
-    ensureDataFile();
     const data = readData();
     const user = authenticateRequest(req, data);
     if (!user) {
@@ -1134,7 +1130,6 @@ async function handleUnsubscribePush(req, res) {
 
 function checkUpcomingSessionReminders() {
   try {
-    ensureDataFile();
     const data = readData();
     const now = new Date();
     let updated = false;
@@ -1320,8 +1315,6 @@ function requestHandler(req, res) {
   res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({ ok: false, error: 'Not found' }));
 }
-
-ensureDataFile();
 
 // Vérifier régulièrement si un rappel doit être envoyé
 setInterval(checkUpcomingSessionReminders, REMINDER_CHECK_INTERVAL_MS);
