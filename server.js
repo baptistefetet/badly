@@ -40,6 +40,8 @@ try {
 // Limits to prevent excessive data file growth
 const MAX_USERS = 64;
 const MAX_SESSIONS = 8;
+const REMINDER_MINUTES_BEFORE_START = 45;
+const REMINDER_CHECK_INTERVAL_MS = 60 * 1000;
 
 // In-memory cache for data.json
 let dataCache = null;
@@ -491,7 +493,8 @@ async function handleCreateSession(req, res) {
     organizer: user.name,
     participants: [],
     guests: 0,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    reminderSent: false
   };
 
   data.sessions.push(session);
@@ -820,6 +823,7 @@ async function handleEditSession(req, res) {
     return;
   }
 
+  const originalDatetime = session.datetime;
   const { datetime, durationMinutes, club, level, capacity, pricePerParticipant } = payload;
 
   if (typeof datetime !== 'string') {
@@ -900,6 +904,9 @@ async function handleEditSession(req, res) {
   session.level = normalizedLevel;
   session.capacity = normalizedCapacity;
   session.pricePerParticipant = roundedPrice;
+  if (session.datetime !== originalDatetime) {
+    session.reminderSent = false;
+  }
 
   writeData(data);
 
@@ -1014,6 +1021,22 @@ async function sendParticipantJoinedNotification(session, participantName, data)
   return sendPushNotifications(data, title, body, tag, session.organizer);
 }
 
+async function sendSessionReminderNotification(session, data) {
+  const formattedDate = formatSessionDate(session);
+  const title = '⏰ Session dans 45 minutes';
+  const body = `${session.club} - ${formattedDate}\nOn se retrouve bientôt sur le terrain`;
+  const tag = `session-${session.id}-reminder`;
+
+  const recipients = [session.organizer, ...(session.participants || [])].filter(Boolean);
+  if (recipients.length === 0) return;
+
+  await Promise.all(
+    recipients.map((userName) =>
+      sendPushNotifications(data, title, body, tag, userName)
+    )
+  );
+}
+
 async function handleSubscribePush(req, res) {
   if (!validateContentType(req)) {
     sendError(res, 400, 'Content-Type must be application/json');
@@ -1107,6 +1130,39 @@ async function handleUnsubscribePush(req, res) {
   }
 
   sendJson(res, 200, { ok: true });
+}
+
+function checkUpcomingSessionReminders() {
+  try {
+    ensureDataFile();
+    const data = readData();
+    const now = new Date();
+    let updated = false;
+
+    for (const session of data.sessions) {
+      if (session.reminderSent) continue;
+      if (sessionHasStarted(session, now)) continue;
+
+      const start = new Date(session.datetime);
+      if (Number.isNaN(start.getTime())) continue;
+
+      const msBeforeStart = start.getTime() - now.getTime();
+      const reminderWindowMs = REMINDER_MINUTES_BEFORE_START * 60 * 1000;
+      if (msBeforeStart > 0 && msBeforeStart <= reminderWindowMs) {
+        session.reminderSent = true;
+        sendSessionReminderNotification(session, data).catch((err) => {
+          debugError('Erreur lors de l\'envoi du rappel de session:', err);
+        });
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      writeData(data);
+    }
+  } catch (err) {
+    debugError('Erreur lors de la vérification des rappels de sessions:', err);
+  }
 }
 
 function handleGetVapidPublicKey(req, res) {
@@ -1266,6 +1322,10 @@ function requestHandler(req, res) {
 }
 
 ensureDataFile();
+
+// Vérifier régulièrement si un rappel doit être envoyé
+setInterval(checkUpcomingSessionReminders, REMINDER_CHECK_INTERVAL_MS);
+setTimeout(checkUpcomingSessionReminders, 2000);
 
 const server = http.createServer(requestHandler);
 
