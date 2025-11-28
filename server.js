@@ -38,8 +38,8 @@ try {
 }
 
 // Limits to prevent excessive data file growth
-const MAX_USERS = 64;
-const MAX_SESSIONS = 8;
+const MAX_USERS = 128;
+const MAX_SESSIONS = 16;
 const REMINDER_MINUTES_BEFORE_START = 45;
 const REMINDER_CHECK_INTERVAL_MS = 60 * 1000;
 
