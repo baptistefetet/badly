@@ -23,7 +23,7 @@ self.addEventListener('push', (event) => {
 
   const title = data.title || 'Nouvelle session de bad !';
   const options = {
-    body: data.body || 'Une nouvelle session vient d\'être créée',
+    body: data.body,
     icon: '/favicon.png',
     badge: '/favicon.png',
     data: data.url ? { url: data.url } : {},

@@ -1020,7 +1020,7 @@ async function sendParticipantJoinedNotification(session, participantName, data)
 async function sendSessionReminderNotification(session, data) {
   const formattedDate = formatSessionDate(session);
   const title = '⏰ Session dans 45 minutes';
-  const body = `${session.club} - ${formattedDate}\nOn se retrouve bientôt sur le terrain`;
+  const body = `${session.club} - ${formattedDate}\nOn se retrouve bientôt sur le terrain !`;
   const tag = `session-${session.id}-reminder`;
 
   const recipients = [session.organizer, ...(session.participants || [])].filter(Boolean);

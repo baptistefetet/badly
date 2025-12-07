@@ -619,7 +619,7 @@
   <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <img src="/favicon.png" alt="Badly" class="auth-logo">
-      <h1>Badly</h1>
+      <h1>Badly<br><small>Le badminton à Lyon !</small></h1>
       <div class="auth-tabs">
         <button type="button" data-mode="signin" class="active">Connexion</button>
         <button type="button" data-mode="signup">Inscription</button>
@@ -775,6 +775,7 @@
         this.$installDismiss = document.getElementById('install-dismiss');
         this.$installUnderstood = document.getElementById('install-understood');
         this.$main = document.querySelector('main');
+        this.$header = document.querySelector('.app-header');
       },
       bindEvents() {
         document.addEventListener('click', (event) => {
@@ -1035,12 +1036,14 @@
         this.$authModal.classList.remove('hidden');
         this.$backdrop.classList.remove('hidden');
         this.$main.classList.add('hidden');
+        this.$header.classList.add('hidden');
         document.body.classList.add('modal-open');
       },
       hideAuthModal() {
         this.$authModal.classList.add('hidden');
         this.$backdrop.classList.add('hidden');
         this.$main.classList.remove('hidden');
+        this.$header.classList.remove('hidden');
         this.$signinForm.reset();
         this.$signupForm.reset();
         document.body.classList.remove('modal-open');
