@@ -66,6 +66,44 @@ function debugError(...args) {
   }
 }
 
+function getBackupPath(filePath) {
+  return `${filePath}.bak`;
+}
+
+function atomicWriteFileSync(targetPath, contents) {
+  const dir = path.dirname(targetPath);
+  const base = path.basename(targetPath);
+  const tmpPath = path.join(dir, `.${base}.tmp-${process.pid}-${Date.now()}`);
+
+  let fd;
+  try {
+    fd = fs.openSync(tmpPath, 'w', 0o600);
+    fs.writeFileSync(fd, contents, 'utf8');
+    fs.fsyncSync(fd);
+  } finally {
+    if (typeof fd === 'number') {
+      try {
+        fs.closeSync(fd);
+      } catch (err) {
+        // ignore
+      }
+    }
+  }
+
+  fs.renameSync(tmpPath, targetPath);
+
+  try {
+    const dirFd = fs.openSync(dir, 'r');
+    try {
+      fs.fsyncSync(dirFd);
+    } finally {
+      fs.closeSync(dirFd);
+    }
+  } catch (err) {
+    // Best effort only (not supported on all platforms/filesystems)
+  }
+}
+
 function readData() {
   // Return cached data if available
   if (dataCache !== null) {
@@ -80,30 +118,63 @@ function readData() {
       clubs: [],
       pushSubscriptions: []
     };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(seed, null, 2));
+    writeData(seed);
     dataCache = seed;
     return seed;
   }
 
-  const raw = fs.readFileSync(DATA_FILE, 'utf8');
-  let parsed;
   try {
-    parsed = raw.trim() ? JSON.parse(raw) : {};
+    const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    const parsed = raw.trim() ? JSON.parse(raw) : {};
+    if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = [];
+    if (!parsed.sessions || !Array.isArray(parsed.sessions)) parsed.sessions = [];
+    if (!parsed.clubs || !Array.isArray(parsed.clubs)) parsed.clubs = [];
+    if (!parsed.pushSubscriptions || !Array.isArray(parsed.pushSubscriptions)) parsed.pushSubscriptions = [];
+
+    // Cache the data
+    dataCache = parsed;
+    return parsed;
   } catch (err) {
+    const backupPath = getBackupPath(DATA_FILE);
+    if (fs.existsSync(backupPath)) {
+      try {
+        const rawBackup = fs.readFileSync(backupPath, 'utf8');
+        const parsedBackup = rawBackup.trim() ? JSON.parse(rawBackup) : {};
+        if (!parsedBackup.users || !Array.isArray(parsedBackup.users)) parsedBackup.users = [];
+        if (!parsedBackup.sessions || !Array.isArray(parsedBackup.sessions)) parsedBackup.sessions = [];
+        if (!parsedBackup.clubs || !Array.isArray(parsedBackup.clubs)) parsedBackup.clubs = [];
+        if (!parsedBackup.pushSubscriptions || !Array.isArray(parsedBackup.pushSubscriptions)) parsedBackup.pushSubscriptions = [];
+
+        // Restore primary file from backup (best effort) and continue.
+        try {
+          console.warn('data.json invalide; restauration depuis data.json.bak');
+          writeData(parsedBackup);
+        } catch (restoreErr) {
+          debugError('Failed to restore data.json from backup:', restoreErr);
+        }
+
+        dataCache = parsedBackup;
+        return parsedBackup;
+      } catch (backupErr) {
+        debugError('Failed to read/parse backup data.json.bak:', backupErr);
+      }
+    }
+
     throw new Error('Invalid data.json content');
   }
-  if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = [];
-  if (!parsed.sessions || !Array.isArray(parsed.sessions)) parsed.sessions = [];
-  if (!parsed.clubs || !Array.isArray(parsed.clubs)) parsed.clubs = [];
-  if (!parsed.pushSubscriptions || !Array.isArray(parsed.pushSubscriptions)) parsed.pushSubscriptions = [];
-
-  // Cache the data
-  dataCache = parsed;
-  return parsed;
 }
 
 function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  const serialized = `${JSON.stringify(data, null, 2)}\n`;
+  atomicWriteFileSync(DATA_FILE, serialized);
+
+  // Keep a last-known-good backup for recovery on startup.
+  try {
+    atomicWriteFileSync(getBackupPath(DATA_FILE), serialized);
+  } catch (err) {
+    debugError('Failed to write data.json backup:', err);
+  }
+
   // Update cache after write
   dataCache = data;
 }
