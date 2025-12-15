@@ -20,8 +20,8 @@ echo "🔄 Redémarrage du serveur..."
 (
   sleep 2
   # Trouver et tuer le processus node sur ce répertoire
-  # On utilise le port défini dans .env ou 3001 par défaut pour dev
-  PORT="${PORT:-3001}"
+  # On utilise le port défini dans .env ou 3002 par défaut pour dev
+  PORT="${PORT:-3002}"
   fuser -k "${PORT}/tcp" 2>/dev/null || true
   sleep 1
   # Relancer le serveur en arrière-plan
