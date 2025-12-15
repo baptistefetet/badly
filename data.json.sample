@@ -1,0 +1,30 @@
+{
+  "users": [
+    {
+      "name": "ExampleUser",
+      "normalized": "exampleuser",
+      "passwordHash": "your_sha256_hash_here",
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "datetime": "2025-01-15T18:00:00.000Z",
+      "durationMinutes": 90,
+      "club": "Example Club",
+      "level": "moyen",
+      "capacity": 8,
+      "pricePerParticipant": 8,
+      "organizer": "ExampleUser",
+      "participants": [],
+      "guests": 0,
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "reminderSent": false
+    }
+  ],
+  "clubs": [
+    "Example Club"
+  ],
+  "pushSubscriptions": []
+}
