@@ -1131,6 +1131,21 @@
               }
               actions.appendChild(joinBtn);
             }
+
+            // Bouton Suivre / Ne plus suivre
+            const followers = session.followers || [];
+            const isFollowing = followers.includes(this.state.user.name);
+            const followBtn = document.createElement('button');
+            followBtn.className = isFollowing ? 'btn-secondary' : 'btn-primary';
+            followBtn.textContent = isFollowing ? 'Ne plus suivre' : 'Suivre';
+            followBtn.addEventListener('click', () => {
+              if (isFollowing) {
+                this.unfollowSession(session.id);
+              } else {
+                this.followSession(session.id);
+              }
+            });
+            actions.appendChild(followBtn);
           }
 
           if (this.state.user && isOrganizer && !hasStarted) {
@@ -1257,6 +1272,24 @@
         try {
           await this.api('/removeGuest', { sessionId });
           this.toast('Invité retiré');
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async followSession(sessionId) {
+        try {
+          await this.api('/followSession', { sessionId });
+          this.toast('Vous suivez maintenant cette session. Vous recevrez toutes les notifications.');
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
+      },
+      async unfollowSession(sessionId) {
+        try {
+          await this.api('/unfollowSession', { sessionId });
+          this.toast('Vous ne suivez plus cette session. Vous ne recevrez plus les notifications.');
           this.refreshSessions();
         } catch (err) {
           this.toast(err.message, true);

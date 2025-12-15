@@ -240,6 +240,7 @@ function formatSessionForClient(session) {
     organizer: session.organizer,
     participants: session.participants,
     guests: session.guests || 0,
+    followers: session.followers || [],
     createdAt: session.createdAt,
     participantCount: Math.min(session.participants.length + 1 + (session.guests || 0), session.capacity)
   };
@@ -496,6 +497,7 @@ async function handleCreateSession(req, res) {
     organizer: user.name,
     participants: [],
     guests: 0,
+    followers: [],
     createdAt: new Date().toISOString(),
     reminderSent: false
   };
@@ -665,6 +667,11 @@ async function handleLeaveSession(req, res) {
   session.participants = session.participants.filter((name) => name !== user.name);
   writeData(data);
 
+  // Notifier l'organisateur et les followers du départ
+  sendParticipantLeftNotification(session, user.name, data).catch((err) => {
+    debugError('Erreur lors de l\'envoi de la notification de départ:', err);
+  });
+
   // Si la session était pleine et qu'une place vient de se libérer, notifier
   if (wasSessionFull) {
     sendSpotAvailableNotification(session, data).catch((err) => {
@@ -784,6 +791,95 @@ async function handleRemoveGuest(req, res) {
       debugError('Erreur lors de l\'envoi des notifications push:', err);
     });
   }
+
+  sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
+}
+
+async function handleFollowSession(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data, user } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || typeof payload.sessionId !== 'string') {
+    sendError(res, 400, 'Identifiant session manquant');
+    return;
+  }
+
+  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  if (!session) {
+    sendError(res, 404, 'Session introuvable');
+    return;
+  }
+
+  // L'organisateur ne peut pas suivre sa propre session
+  if (session.organizer === user.name) {
+    sendError(res, 400, 'L\'organisateur ne peut pas suivre sa propre session');
+    return;
+  }
+
+  // Initialiser le tableau followers si nécessaire
+  if (!session.followers) {
+    session.followers = [];
+  }
+
+  if (session.followers.includes(user.name)) {
+    sendError(res, 400, 'Vous suivez déjà cette session');
+    return;
+  }
+
+  session.followers.push(user.name);
+  writeData(data);
+
+  sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
+}
+
+async function handleUnfollowSession(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data, user } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || typeof payload.sessionId !== 'string') {
+    sendError(res, 400, 'Identifiant session manquant');
+    return;
+  }
+
+  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  if (!session) {
+    sendError(res, 404, 'Session introuvable');
+    return;
+  }
+
+  if (!session.followers || !session.followers.includes(user.name)) {
+    sendError(res, 400, 'Vous ne suivez pas cette session');
+    return;
+  }
+
+  session.followers = session.followers.filter((name) => name !== user.name);
+  writeData(data);
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -1014,14 +1110,38 @@ async function sendSpotAvailableNotification(session, data) {
   return sendPushNotifications(data, title, body, tag);
 }
 
-// Notification pour l'organisateur quand quelqu'un s'inscrit
+// Notification pour l'organisateur et les followers quand quelqu'un s'inscrit
 async function sendParticipantJoinedNotification(session, participantName, data) {
   const formattedDate = formatSessionDate(session);
   const title = '🏸 Nouveau participant !';
-  const body = `${participantName} s'est inscrit à ta session du ${formattedDate}`;
+  const body = `${participantName} s'est inscrit à la session du ${formattedDate}`;
   const tag = `session-${session.id}-join`;
 
-  return sendPushNotifications(data, title, body, tag, session.organizer);
+  // Notifier l'organisateur et les followers
+  const recipients = [session.organizer, ...(session.followers || [])].filter(Boolean);
+
+  await Promise.all(
+    recipients.map((userName) =>
+      sendPushNotifications(data, title, body, tag, userName)
+    )
+  );
+}
+
+// Notification pour l'organisateur et les followers quand quelqu'un se désinscrit
+async function sendParticipantLeftNotification(session, participantName, data) {
+  const formattedDate = formatSessionDate(session);
+  const title = '🏸 Départ d\'un participant';
+  const body = `${participantName} s'est désinscrit de la session du ${formattedDate}`;
+  const tag = `session-${session.id}-leave`;
+
+  // Notifier l'organisateur et les followers
+  const recipients = [session.organizer, ...(session.followers || [])].filter(Boolean);
+
+  await Promise.all(
+    recipients.map((userName) =>
+      sendPushNotifications(data, title, body, tag, userName)
+    )
+  );
 }
 
 async function sendSessionReminderNotification(session, data) {
@@ -1303,6 +1423,24 @@ function requestHandler(req, res) {
   if (req.method === 'POST' && pathname === '/removeGuest') {
     debugLog(`${logPrefix}`);
     handleRemoveGuest(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/followSession') {
+    debugLog(`${logPrefix}`);
+    handleFollowSession(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/unfollowSession') {
+    debugLog(`${logPrefix}`);
+    handleUnfollowSession(req, res).catch((err) => {
       debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
