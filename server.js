@@ -38,7 +38,7 @@ let webpush;
 try {
   webpush = require('web-push');
   webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  console.log('Web Push configuré');
+  console.log(`Web Push configuré${IS_DEV ? ' (DEV)' : ''}`);
 } catch (err) {
   console.warn('web-push non disponible - les notifications push ne fonctionneront pas');
   console.warn('Installez avec: npm install web-push');
@@ -1293,7 +1293,7 @@ function handleGetVapidPublicKey(req, res) {
 
 // Webhook pour le déploiement automatique (GitHub Actions)
 function handleWebhookDeploy(req, res) {
-  console.log('🚀 Webhook deploy: déploiement déclenché');
+  console.log(`🚀 Webhook deploy: déploiement déclenché${IS_DEV ? ' (DEV)' : ''}`);
 
   const deployScript = path.join(__dirname, 'deploy.sh');
 
@@ -1492,5 +1492,5 @@ setTimeout(checkUpcomingSessionReminders, 2000);
 const server = http.createServer(requestHandler);
 
 server.listen(PORT, () => {
-  console.log(`Badly server running on http://localhost:${PORT}`);
+  console.log(`Badly server${IS_DEV ? ' (DEV)' : ''} running on http://localhost:${PORT}`);
 });
