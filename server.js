@@ -10,9 +10,15 @@ try {
   console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
 }
 
-const DEBUG = false;
-const PORT = 3001;
-const DATA_FILE = path.join(__dirname, 'data.json');
+// Configuration basée sur l'environnement
+const NODE_ENV = process.env.NODE_ENV || 'production';
+const IS_DEV = NODE_ENV === 'development';
+const DEBUG = process.env.DEBUG === 'true';
+const PORT = parseInt(process.env.PORT, 10) || 3000;
+const DATA_FILE = path.join(__dirname, process.env.DATA_FILE || 'data.json');
+
+console.log(`🚀 Environnement: ${NODE_ENV}${IS_DEV ? ' (DEV)' : ''}`);
+console.log(`📁 Fichier de données: ${DATA_FILE}`);
 const INDEX_FILE = path.join(__dirname, 'index.html');
 const MANIFEST_FILE = path.join(__dirname, 'manifest.json');
 const FAVICON_FILE = path.join(__dirname, 'favicon.png');
