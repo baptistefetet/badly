@@ -1,0 +1,414 @@
+{
+  "users": [
+    {
+      "name": "god",
+      "normalized": "god",
+      "passwordHash": "8e9d4c0805015aef275658bc90c83f833f476d3ef2062f4574ef3b82b304b96b",
+      "createdAt": "2025-10-05T12:04:54.491Z"
+    },
+    {
+      "name": "Bat",
+      "normalized": "bat",
+      "passwordHash": "8e9d4c0805015aef275658bc90c83f833f476d3ef2062f4574ef3b82b304b96b",
+      "createdAt": "2025-10-05T12:25:07.320Z"
+    },
+    {
+      "name": "Flmas",
+      "normalized": "flmas",
+      "passwordHash": "6dbbc3a2318cacb9d71c6fe7072f97eb4ab72b97ab750091d0029b7d242c92ee",
+      "createdAt": "2025-10-05T14:26:11.509Z"
+    },
+    {
+      "name": "Raphael",
+      "normalized": "raphael",
+      "passwordHash": "d8068739b6c29aca539fac616374f3f7f56c3f5aab4b3c71c0a1dc9ab5add65d",
+      "createdAt": "2025-10-05T15:12:09.822Z"
+    },
+    {
+      "name": "VTH",
+      "normalized": "vth",
+      "passwordHash": "2abefd0afe65f5f200e4aac8c4e875ddc5dddcb29ba649fc20d7591cd2437c2f",
+      "createdAt": "2025-10-05T15:16:02.610Z"
+    },
+    {
+      "name": "Ilann",
+      "normalized": "ilann",
+      "passwordHash": "6aed3650685197b814249c0086595e941f46aea629f336ef7d3a855aa5b7c3d3",
+      "createdAt": "2025-10-05T16:38:00.508Z"
+    },
+    {
+      "name": "Thibaud",
+      "normalized": "thibaud",
+      "passwordHash": "acea7663a517635db9782e2d76443ebc0867d58565285dba3cf5c9845b0dea91",
+      "createdAt": "2025-10-05T17:35:45.054Z"
+    },
+    {
+      "name": "MaureenT",
+      "normalized": "maureent",
+      "passwordHash": "b19e14ea8cc1a8aa590062d38df9d8fb892f83b1c98c56697ab83c07d57dfecd",
+      "createdAt": "2025-10-05T18:43:12.801Z"
+    },
+    {
+      "name": "Cindy",
+      "normalized": "cindy",
+      "passwordHash": "0a474d830be42a4565b3baa8664ae06706eb7671d992f848ca3f5253c33e5302",
+      "createdAt": "2025-10-05T18:46:18.002Z"
+    },
+    {
+      "name": "TestSj",
+      "normalized": "testsj",
+      "passwordHash": "f7956d23091019e41366bc119ad66acf22171dd330b8011be814a0361f4a4292",
+      "createdAt": "2025-10-05T19:27:24.092Z"
+    },
+    {
+      "name": "Jubadgood",
+      "normalized": "jubadgood",
+      "passwordHash": "e74cbafa3100495bb6a145819739ec9d762da550a6469662717ae464d147323d",
+      "createdAt": "2025-10-05T19:36:25.538Z"
+    },
+    {
+      "name": "Petitnico",
+      "normalized": "petitnico",
+      "passwordHash": "79f5a451cb60ae20c0a64d80288ddc2ae6ce10c8ed3f526ba47b2ef5ca4933cf",
+      "createdAt": "2025-10-05T20:36:47.069Z"
+    },
+    {
+      "name": "mindest14",
+      "normalized": "mindest14",
+      "passwordHash": "689a937d12fd4e5862697041b37a7c538555e99edb620959e0c124007abf9ac7",
+      "createdAt": "2025-10-06T04:44:32.333Z"
+    },
+    {
+      "name": "Maxime",
+      "normalized": "maxime",
+      "passwordHash": "366c3503e5c8a30b9e0e27b5deb4146324991606a31f71d57ca0446fe05d80a6",
+      "createdAt": "2025-10-06T07:05:37.327Z"
+    },
+    {
+      "name": "LucasP",
+      "normalized": "lucasp",
+      "passwordHash": "a12a38bc5d9717e789697d8cc0e615dd14c56d0cd2f20e1747c24aeccf5bf61a",
+      "createdAt": "2025-10-06T08:09:11.498Z"
+    },
+    {
+      "name": "Sandra",
+      "normalized": "sandra",
+      "passwordHash": "ea3fe502916bdc251c715a8bfd9ec28f5dc5df57a23083d02ce30270dbe82a8c",
+      "createdAt": "2025-10-06T20:23:11.431Z"
+    },
+    {
+      "name": "JenC",
+      "normalized": "jenc",
+      "passwordHash": "49b14e0d6dc60ede7844533b054a532bf54c99c1c2ac5e37ff24380f26a27bbd",
+      "createdAt": "2025-10-06T20:26:42.566Z"
+    },
+    {
+      "name": "Gipper",
+      "normalized": "gipper",
+      "passwordHash": "4b1970cdd8be2e921532bcb775d99776a4f82f313b774758fa33bc40f477be10",
+      "createdAt": "2025-10-06T22:54:37.809Z"
+    },
+    {
+      "name": "Alexia",
+      "normalized": "alexia",
+      "passwordHash": "119c6931e9cd36c85c3986d6e8cda78cae3358c5d9a8c2f81cc6440d93a3f804",
+      "createdAt": "2025-10-07T22:49:15.115Z"
+    },
+    {
+      "name": "balibad",
+      "normalized": "balibad",
+      "passwordHash": "33716d4e2ed5c933590f28301c5b94b5761b28e5f3251b8f21a711880211d2ea",
+      "createdAt": "2025-10-08T08:26:19.471Z"
+    },
+    {
+      "name": "guigui69",
+      "normalized": "guigui69",
+      "passwordHash": "503dd28a5d3f2869b8b05edac1bebbb432bf6390e684e92a6b7852a407644702",
+      "createdAt": "2025-10-09T15:57:52.341Z"
+    },
+    {
+      "name": "Greg",
+      "normalized": "greg",
+      "passwordHash": "ef7975cdcbecbaaded6bb81b8e3bd456f999cc3d3da73aaa2b4bd2aba3f59039",
+      "createdAt": "2025-10-11T08:48:39.510Z"
+    },
+    {
+      "name": "Aurel69",
+      "normalized": "aurel69",
+      "passwordHash": "e7555baf37fbdf171876cee7bf441a7546425a2ae5ba2362b7011f08f764b3b5",
+      "createdAt": "2025-10-11T17:20:42.872Z"
+    },
+    {
+      "name": "Corentin",
+      "normalized": "corentin",
+      "passwordHash": "8b43b230a1778dd6e9b21f988bdf245c2e66d5af1f4e80a9d3e263ba52c56a7d",
+      "createdAt": "2025-10-12T16:47:38.262Z"
+    },
+    {
+      "name": "Alexluz69",
+      "normalized": "alexluz69",
+      "passwordHash": "b4a6d889555094a16cba9d0a11da6a760770bb07ed2f3dbd7c2b4235548d95f5",
+      "createdAt": "2025-10-16T20:05:21.522Z"
+    },
+    {
+      "name": "Agnesbad",
+      "normalized": "agnesbad",
+      "passwordHash": "d9ea25506b266c58e9aa39912d3d7ce1f5776bdd780a4a34833871c97ba892b2",
+      "createdAt": "2025-10-17T06:06:22.306Z"
+    },
+    {
+      "name": "Julie",
+      "normalized": "julie",
+      "passwordHash": "0000243ac0c9fc8bb543bf51c1611d882fa6f3d0e7286b382dedfdc3d8f45ad0",
+      "createdAt": "2025-10-19T08:59:33.040Z"
+    },
+    {
+      "name": "Sarah",
+      "normalized": "sarah",
+      "passwordHash": "930683d65aae6c6877082ac14fe9bcb6fca0cbba3412608f7dbc3628170fc674",
+      "createdAt": "2025-10-31T14:30:49.158Z"
+    },
+    {
+      "name": "montass69",
+      "normalized": "montass69",
+      "passwordHash": "25211a3b345740ec907486bb9bce74b678babadfaf4772be06ded829ab5da6a0",
+      "createdAt": "2025-11-02T07:45:43.296Z"
+    },
+    {
+      "name": "Talleux",
+      "normalized": "talleux",
+      "passwordHash": "de99dbdffe59267d06b10115e84ca98f1510592f048b84e946fde04b8958c43d",
+      "createdAt": "2025-11-02T21:55:14.480Z"
+    },
+    {
+      "name": "Julien",
+      "normalized": "julien",
+      "passwordHash": "0d9db3cf0d7445cde1ddf781d93a97a07fc917e73d076366b7cba7c078d39a34",
+      "createdAt": "2025-11-04T08:28:57.530Z"
+    },
+    {
+      "name": "test",
+      "normalized": "test",
+      "passwordHash": "8e9d4c0805015aef275658bc90c83f833f476d3ef2062f4574ef3b82b304b96b",
+      "createdAt": "2025-11-06T18:32:25.098Z"
+    },
+    {
+      "name": "Cindy2201",
+      "normalized": "cindy2201",
+      "passwordHash": "0f3624a77175c673fa494e50377b967715594c05076d69425bf2bbf9bd14a9c0",
+      "createdAt": "2025-11-06T19:59:40.659Z"
+    },
+    {
+      "name": "Cedric",
+      "normalized": "cedric",
+      "passwordHash": "88e8f5bbd588f2a26ea7fc64d5d47e719a0ccd423dd0782a6bf3acc8d05bc633",
+      "createdAt": "2025-11-07T05:30:24.916Z"
+    },
+    {
+      "name": "Ekin",
+      "normalized": "ekin",
+      "passwordHash": "cb27a08b26a9c3769d0d4d5000af8bfbc2bc9a1e5ae39f22afe929678d762b7b",
+      "createdAt": "2025-11-09T08:26:31.056Z"
+    },
+    {
+      "name": "Florian",
+      "normalized": "florian",
+      "passwordHash": "8dca087ca471b0ef200ef3ec13faf67817bbed76995afea91e57e972f22c1390",
+      "createdAt": "2025-11-13T14:13:08.800Z"
+    },
+    {
+      "name": "Amelie",
+      "normalized": "amelie",
+      "passwordHash": "ae946289abb41b0028cc8755732d3bfd025ca63d499f069088678958395698dd",
+      "createdAt": "2025-11-16T15:03:24.357Z"
+    },
+    {
+      "name": "Gio",
+      "normalized": "gio",
+      "passwordHash": "ef8adfff773e73fbe37e60d4e16d89047094051653eb2f11ca4755fc2f27492c",
+      "createdAt": "2025-11-18T11:19:02.462Z"
+    },
+    {
+      "name": "Azerty",
+      "normalized": "azerty",
+      "passwordHash": "82010d547cac0dc88e2a5de365d01580f9582ed71f99035c56a8a45d5234a2fa",
+      "createdAt": "2025-11-18T21:27:22.020Z"
+    },
+    {
+      "name": "Tuhin",
+      "normalized": "tuhin",
+      "passwordHash": "92a263053bf7b05760130bf383bf875c8b3f8aa7ac2b2d8028a2472ac9e96a01",
+      "createdAt": "2025-11-20T23:32:09.068Z"
+    },
+    {
+      "name": "Clement38",
+      "normalized": "clement38",
+      "passwordHash": "da3b8350acf2e16a95e897e116a7274be91d4391d860dc68abe94ba990a77b52",
+      "createdAt": "2025-11-21T06:28:16.509Z"
+    },
+    {
+      "name": "Kristel",
+      "normalized": "kristel",
+      "passwordHash": "d6f9880287b7577e517a035dc2ad2f8ccd4b5f3349e648f56a9457b1a095125d",
+      "createdAt": "2025-11-21T15:02:31.368Z"
+    },
+    {
+      "name": "Marine51",
+      "normalized": "marine51",
+      "passwordHash": "75c159d58822f3c925db7b85b441f8973131c32c43465a10f613cd99b1560c53",
+      "createdAt": "2025-11-22T09:32:55.509Z"
+    },
+    {
+      "name": "Izae",
+      "normalized": "izae",
+      "passwordHash": "5818806ce6cf9d58c511fb42c5fb87c6d8a3558aa38e426636fbe387bd510bf0",
+      "createdAt": "2025-11-22T09:51:45.243Z"
+    },
+    {
+      "name": "Sandrine",
+      "normalized": "sandrine",
+      "passwordHash": "7cd893fa0a14338eeb38eb35414c19d73ec82dd78921859f78f885ca29b313fb",
+      "createdAt": "2025-11-22T11:56:10.707Z"
+    },
+    {
+      "name": "Borja",
+      "normalized": "borja",
+      "passwordHash": "4ae5216d32e63bf96f63a4e84ada54681bc09adeebf3099abf872dbd4fd76a3d",
+      "createdAt": "2025-11-22T17:01:00.598Z"
+    },
+    {
+      "name": "Patrick",
+      "normalized": "patrick",
+      "passwordHash": "4f543d1018343c47928b4555c19c4ff69499ebe14f5d1d95735154889d69a5ef",
+      "createdAt": "2025-11-22T17:14:19.414Z"
+    },
+    {
+      "name": "Amande007",
+      "normalized": "amande007",
+      "passwordHash": "92ded53ab0836c7b0bac62fb7c121bc232cf448416e01d4f9f1ceeb4ab0783e3",
+      "createdAt": "2025-11-23T06:34:42.121Z"
+    },
+    {
+      "name": "Thierry-69",
+      "normalized": "thierry-69",
+      "passwordHash": "6a5675b2bb459a4b38b3e3e1061033632ec8bd870cfeb8dc8df7fd006dad3fcb",
+      "createdAt": "2025-11-23T07:02:06.667Z"
+    },
+    {
+      "name": "kotevskip",
+      "normalized": "kotevskip",
+      "passwordHash": "3adf81fc73fa2d35ff96276237cdecebba6c67bdfaf98cf83162224f83ca449c",
+      "createdAt": "2025-11-24T19:12:10.350Z"
+    },
+    {
+      "name": "ThomasL",
+      "normalized": "thomasl",
+      "passwordHash": "6ed9a7a56166e963c2f5db3e2a0d4a1906e7a6d44bcce8638dee6ed4308d586a",
+      "createdAt": "2025-11-26T16:36:18.726Z"
+    },
+    {
+      "name": "Shad",
+      "normalized": "shad",
+      "passwordHash": "78b88da12d08ad8b4c47162c41d312351ce819cb90c47cc4bf4a699f76ceb9a1",
+      "createdAt": "2025-11-28T13:59:35.268Z"
+    },
+    {
+      "name": "Alain_M",
+      "normalized": "alain_m",
+      "passwordHash": "4b0819e89ff5bc2ad925faf1abb696ed85e5b62bbb70788346d6865e698c6a24",
+      "createdAt": "2025-11-30T12:47:50.157Z"
+    },
+    {
+      "name": "Bastien",
+      "normalized": "bastien",
+      "passwordHash": "f138a9f52e31639bda71c88a49df5251d4a21dead8533944ac1c65f207e29d28",
+      "createdAt": "2025-12-01T22:54:40.544Z"
+    },
+    {
+      "name": "Chris",
+      "normalized": "chris",
+      "passwordHash": "a4ca1750e6c10a090e62d1201f0780111f3bbcda58a01800eb94d2c691643308",
+      "createdAt": "2025-12-07T12:48:44.173Z"
+    },
+    {
+      "name": "Dchollet",
+      "normalized": "dchollet",
+      "passwordHash": "2f21b6e5152fabc25c601c72d8de6a7108ea18411bee7f9a59df49d688290771",
+      "createdAt": "2025-12-08T21:52:22.020Z"
+    },
+    {
+      "name": "Guillaume",
+      "normalized": "guillaume",
+      "passwordHash": "ac4da766b9eacdee44e1d6e5207cd08ecf7a98aa8aed78632c629957b802949d",
+      "createdAt": "2025-12-13T17:10:39.792Z"
+    },
+    {
+      "name": "Mathieu150",
+      "normalized": "mathieu150",
+      "passwordHash": "9e70b7514521f6b2399a4dd36e3c5a24aa5da5ca748f539dd529324f21d3ec1f",
+      "createdAt": "2025-12-14T21:36:43.861Z"
+    },
+    {
+      "name": "Goshia",
+      "normalized": "goshia",
+      "passwordHash": "f71673e4305c72736e776ff5088c75bb2ec2c94eca9a1cc1b34e3ad9e26519ef",
+      "createdAt": "2025-12-15T12:48:52.957Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "18889e98-315d-48fe-88dd-f33761da5afb",
+      "datetime": "2025-12-21T08:45:00.000Z",
+      "durationMinutes": 90,
+      "club": "Bad's Club",
+      "level": "moyen",
+      "capacity": 8,
+      "pricePerParticipant": 8,
+      "organizer": "Bat",
+      "participants": [
+        "Alain_M",
+        "Cindy2201",
+        "Flmas",
+        "Goshia"
+      ],
+      "guests": 2,
+      "createdAt": "2025-11-30T10:25:27.095Z",
+      "reminderSent": false
+    },
+    {
+      "id": "010e4246-607b-4e21-a940-bc30a2c88da9",
+      "datetime": "2025-12-28T08:45:00.000Z",
+      "durationMinutes": 90,
+      "club": "Bad's Club",
+      "level": "moyen",
+      "capacity": 4,
+      "pricePerParticipant": 8,
+      "organizer": "Bat",
+      "participants": [
+        "montass69"
+      ],
+      "guests": 1,
+      "createdAt": "2025-12-07T12:16:50.544Z",
+      "reminderSent": false
+    }
+  ],
+  "clubs": [
+    "Bad's Club",
+    "Ofluence",
+    "Playground",
+    "We Are Sports",
+    "Squash Evasion"
+  ],
+  "pushSubscriptions": [
+    {
+      "endpoint": "https://updates.push.services.mozilla.com/wpush/v2/gAAAAABpQB9vWs3C2nyjVMN9KS_lBXEUDWo4cY8LW3fozm7ElBb0DLQqZA--_hyRuQb79MdTcaZ61u4xESmKx0Dc11HjbZ04XAtEA9ngBctc037YzkBHShvyNYm9apmydR8LUu_PLvZU0BRXLjkZBb7eZ_UaX97rR4laWkbu-lJMGrGkk8pRld0",
+      "expirationTime": null,
+      "keys": {
+        "auth": "9kpuH-KqXlu8Qu-Xk-NBNQ",
+        "p256dh": "BL3QflNJzPas2NZbirHfQ9FRqZK7ZEjJtz8xEItgetEvZA7asTCPKV0CyvEgnQ1Bb1SD1HPMJeUCdc0ymjxCPGw"
+      },
+      "user": "Bat",
+      "createdAt": "2025-12-15T14:47:12.014Z"
+    }
+  ]
+}
