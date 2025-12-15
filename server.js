@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { exec } = require('child_process');
 
 // Charger les variables d'environnement depuis .env
 try {
@@ -1170,6 +1171,24 @@ function handleGetVapidPublicKey(req, res) {
   sendJson(res, 200, { ok: true, publicKey: VAPID_PUBLIC_KEY });
 }
 
+// Webhook pour le déploiement automatique (GitHub Actions)
+function handleWebhookDeploy(req, res) {
+  console.log('🚀 Webhook deploy: déploiement déclenché');
+
+  const deployScript = path.join(__dirname, 'deploy-dev.sh');
+
+  exec(`bash ${deployScript}`, { cwd: __dirname }, (error, stdout, stderr) => {
+    if (error) {
+      console.error('❌ Erreur de déploiement:', error.message);
+      console.error('stderr:', stderr);
+      return;
+    }
+    console.log('✅ Déploiement terminé:', stdout);
+  });
+
+  sendJson(res, 200, { ok: true, message: 'Déploiement déclenché' });
+}
+
 function requestHandler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
@@ -1312,6 +1331,15 @@ function requestHandler(req, res) {
     debugLog(`${logPrefix}`);
     handleUnsubscribePush(req, res).catch((err) => {
       debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/webhook/deploy') {
+    console.log(`${logPrefix} -> webhook deploy`);
+    handleWebhookDeploy(req, res).catch((err) => {
+      console.error(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
     return;

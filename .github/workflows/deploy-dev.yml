@@ -1,0 +1,18 @@
+# Déploiement automatique de la branche dev sur dev.badly.ovh
+# Déclenché à chaque push sur dev
+
+name: Deploy Dev
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy webhook
+        run: |
+          curl -X POST https://dev.badly.ovh/webhook/deploy --fail --silent --show-error
+          echo "✅ Webhook de déploiement déclenché"
