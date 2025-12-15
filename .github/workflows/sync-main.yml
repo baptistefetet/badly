@@ -6,11 +6,14 @@ name: Sync main with dev
 on:
   # Déclenchement manuel depuis GitHub
   workflow_dispatch:
-  
+
   # Ou automatiquement à chaque push sur dev (décommenter si souhaité)
   # push:
   #   branches:
   #     - dev
+
+permissions:
+  contents: write
 
 jobs:
   sync:
