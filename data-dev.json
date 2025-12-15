@@ -387,7 +387,7 @@
       "participants": [
         "montass69"
       ],
-      "guests": 0,
+      "guests": 1,
       "createdAt": "2025-12-07T12:16:50.544Z",
       "reminderSent": false
     }
@@ -400,6 +400,15 @@
     "Squash Evasion"
   ],
   "pushSubscriptions": [
-    
+    {
+      "endpoint": "https://updates.push.services.mozilla.com/wpush/v2/gAAAAABpQB9vWs3C2nyjVMN9KS_lBXEUDWo4cY8LW3fozm7ElBb0DLQqZA--_hyRuQb79MdTcaZ61u4xESmKx0Dc11HjbZ04XAtEA9ngBctc037YzkBHShvyNYm9apmydR8LUu_PLvZU0BRXLjkZBb7eZ_UaX97rR4laWkbu-lJMGrGkk8pRld0",
+      "expirationTime": null,
+      "keys": {
+        "auth": "9kpuH-KqXlu8Qu-Xk-NBNQ",
+        "p256dh": "BL3QflNJzPas2NZbirHfQ9FRqZK7ZEjJtz8xEItgetEvZA7asTCPKV0CyvEgnQ1Bb1SD1HPMJeUCdc0ymjxCPGw"
+      },
+      "user": "Bat",
+      "createdAt": "2025-12-15T14:47:12.014Z"
+    }
   ]
 }

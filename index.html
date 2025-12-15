@@ -1550,7 +1550,13 @@
       }
     };
 
-    document.addEventListener('DOMContentLoaded', () => app.init());
+    document.addEventListener('DOMContentLoaded', () => {
+      app.init();
+      // Afficher "Badly-dev" dans le titre si l'URL contient "dev"
+      if (window.location.href.includes('dev')) {
+        document.title = 'Badly-dev';
+      }
+    });
   </script>
 </body>
 </html>
