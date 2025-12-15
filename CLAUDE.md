@@ -49,13 +49,33 @@ Sessions contain the following fields:
 4. **Auto-cleanup**: Expired sessions are purged automatically when listing sessions
 5. **Capacity Management**: Sessions track participants + organizer + guests vs capacity
 
+## Branches and Deployment
+
+### Branch Strategy
+- **dev**: Development branch, deployed on https://dev.badly.ovh (port 3002)
+- **main**: Production branch, deployed on https://badly.ovh (port 3001)
+
+All development work is done on `dev`. When ready for production, use the "Sync main with dev" GitHub Action to merge `dev` into `main`.
+
+### Automatic Deployment (dev only)
+When code is pushed to the `dev` branch:
+1. GitHub Actions triggers the `deploy-dev.yml` workflow
+2. The workflow calls `POST https://dev.badly.ovh/webhook/deploy`
+3. The server executes `deploy-dev.sh` which:
+   - Pulls latest code from `origin/dev`
+   - Runs `npm install`
+   - Restarts the server
+
+### Manual Sync to Production
+To deploy to production, manually trigger the "Sync main with dev" workflow from GitHub Actions. This merges `dev` into `main`. Production deployment is handled separately.
+
 ## Development Commands
 
 ### Running the Server
 ```bash
 node server.js
 ```
-Server runs on port 3001 by default.
+Server runs on port 3000 by default (prod uses 3001, dev uses 3002 via `PORT` environment variable).
 
 ### Environment Variables
 Required for push notifications (generate with `npx web-push generate-vapid-keys`):
