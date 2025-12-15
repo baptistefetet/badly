@@ -1295,7 +1295,7 @@ function handleGetVapidPublicKey(req, res) {
 function handleWebhookDeploy(req, res) {
   console.log('🚀 Webhook deploy: déploiement déclenché');
 
-  const deployScript = path.join(__dirname, 'deploy-dev.sh');
+  const deployScript = path.join(__dirname, 'deploy.sh');
 
   exec(`bash ${deployScript}`, { cwd: __dirname }, (error, stdout, stderr) => {
     if (error) {
