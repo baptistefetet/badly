@@ -1338,10 +1338,7 @@ function requestHandler(req, res) {
 
   if (req.method === 'POST' && pathname === '/webhook/deploy') {
     console.log(`${logPrefix} -> webhook deploy`);
-    handleWebhookDeploy(req, res).catch((err) => {
-      console.error(`${logPrefix} error`, err);
-      sendError(res, 500, 'Erreur serveur');
-    });
+    handleWebhookDeploy(req, res);
     return;
   }
 
