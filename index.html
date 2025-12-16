@@ -1104,6 +1104,15 @@
           }
           participantsLine.innerHTML = `<strong>Participants :</strong> ${participantsText}`;
 
+          // Ligne des intéressés (followers)
+          const followers = session.followers || [];
+          let followersLine = null;
+          if (followers.length > 0) {
+            followersLine = document.createElement('div');
+            followersLine.className = 'participants-line';
+            followersLine.innerHTML = `<strong>Intéressés :</strong> ${followers.length}`;
+          }
+
           const actions = document.createElement('div');
           actions.className = 'session-actions';
           const isOrganizer = this.state.user && session.organizer === this.state.user.name;
@@ -1183,6 +1192,9 @@
 
           card.appendChild(header);
           card.appendChild(meta);
+          if (followersLine) {
+            card.appendChild(followersLine);
+          }
           card.appendChild(participantsLine);
           card.appendChild(actions);
           list.appendChild(card);
