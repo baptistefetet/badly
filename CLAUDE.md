@@ -39,8 +39,15 @@ Sessions contain the following fields:
 - `organizer`: Username of session creator
 - `participants`: Array of participant usernames
 - `guests`: Number of anonymous guests (organizer-managed)
+- `followers`: Array of usernames "interested" in the session (cannot include the organizer). Followers receive join/leave notifications and are displayed as "Intéressés" in the UI.
 - `createdAt`: ISO 8601 creation timestamp
 - `reminderSent`: Boolean flag to track if 45-minute reminder was sent
+
+#### App Version
+The backend exposes an application version constant in `server.js` (`APP_VERSION`, default `1.0.1`) and a public endpoint:
+- `GET /version` → `{ ok: true, version: "x.y.z" }`
+
+The frontend fetches this endpoint and displays the version in the user dropdown (under the "Se déconnecter" button).
 
 ### Key Design Patterns
 1. **Single File Architecture**: All backend logic in `server.js`, all frontend logic in `index.html`
@@ -113,8 +120,9 @@ VAPID_EMAIL=mailto:your@email.com
 When to send notifications:
 1. **New session created**: Notify all subscribed users
 2. **Spot becomes available**: When participant leaves or guest removed from a full session
-3. **Participant joins**: Notify organizer when someone joins their session
-4. **Session reminder**: Notify all participants (organizer + participants) 45 minutes before session start
+3. **Participant joins**: Notify organizer + followers when someone joins their session
+4. **Participant leaves**: Notify organizer + followers when someone leaves their session
+5. **Session reminder**: Notify all participants (organizer + participants) 45 minutes before session start
 
 The service worker handles:
 - Displaying notifications with vibration
@@ -150,18 +158,22 @@ The service worker handles:
 ### API Endpoints
 **Public:**
 - `GET /` - Serve index.html
+- `GET /version` - Get current app version
 - `POST /signup` - Create new user account
 - `POST /signin` - Authenticate user
+- `POST /signout` - Clear auth cookie
 
 **Authenticated:**
 - `GET /listSessions` - Get all sessions + clubs
 - `POST /createSession` - Create new session (triggers push notification to all users)
 - `POST /editSession` - Modify session (organizer only, resets reminderSent if datetime changes)
 - `POST /deleteSession` - Delete session (organizer only)
-- `POST /joinSession` - Join as participant (triggers notification to organizer)
-- `POST /leaveSession` - Leave session (triggers notification if was full)
+- `POST /joinSession` - Join as participant (triggers notification to organizer + followers)
+- `POST /leaveSession` - Leave session (triggers notification to organizer + followers, and spot-available notification if was full)
 - `POST /addGuest` - Add anonymous guest (organizer only)
 - `POST /removeGuest` - Remove guest (organizer only, triggers notification if was full)
+- `POST /followSession` - Follow a session (adds current user to `session.followers`)
+- `POST /unfollowSession` - Unfollow a session (removes current user from `session.followers`)
 - `GET /vapidPublicKey` - Get VAPID public key for push
 - `POST /subscribePush` - Register push subscription
 - `POST /unsubscribePush` - Unregister push subscription
@@ -204,7 +216,9 @@ Manually edit `data.json` and add club names to the `clubs` array. The frontend 
 Notification functions in server.js:
 1. `sendNewSessionNotification()` - when a session is created
 2. `sendSpotAvailableNotification()` - when a spot becomes available in a full session
-3. `sendParticipantJoinedNotification()` - when someone joins a session (organizer only)
+3. `sendParticipantJoinedNotification()` - when someone joins a session (organizer + followers)
+4. `sendParticipantLeftNotification()` - when someone leaves a session (organizer + followers)
+5. `sendSessionReminderNotification()` - 45-minute reminder (organizer + participants)
 4. `sendSessionReminderNotification()` - 45 minutes before session start (all participants)
 
 All use the low-level `sendPushNotifications()` function. Also update service worker notification display in `service-worker.js`.

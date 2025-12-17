@@ -138,6 +138,12 @@
       font-weight: 600;
     }
 
+    .app-version {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
     main {
       flex: 1;
       padding: clamp(16px, 6vw, 48px);
@@ -602,6 +608,7 @@
         <div id="user-dropdown" class="user-dropdown hidden">
           <strong id="user-name"></strong>
           <button id="signout-button" type="button">Se déconnecter</button>
+          <div id="app-version" class="app-version hidden"></div>
         </div>
       </div>
     </header>
@@ -730,6 +737,7 @@
     const app = {
       state: {
         user: null,
+        version: null,
         sessions: [],
         clubs: [],
         pushSubscription: null,
@@ -738,6 +746,7 @@
       init() {
         this.cacheElements();
         this.bindEvents();
+        this.loadVersion();
         this.restoreAuth();
         this.startAutoRefresh();
         this.registerServiceWorker();
@@ -769,6 +778,7 @@
         this.$userDropdown = document.getElementById('user-dropdown');
         this.$userName = document.getElementById('user-name');
         this.$signoutButton = document.getElementById('signout-button');
+        this.$appVersion = document.getElementById('app-version');
         this.$authTabs = this.$authModal.querySelectorAll('.auth-tabs button');
         this.$installPrompt = document.getElementById('install-prompt');
         this.$installInstructions = document.getElementById('install-instructions');
@@ -963,6 +973,26 @@
         this.$userButton.classList.remove('hidden');
         this.$userName.textContent = this.state.user.name;
         this.$userButtonLabel.textContent = this.state.user.name;
+        this.updateVersionLabel();
+      },
+      async loadVersion() {
+        try {
+          const response = await this.api('/version', null, { method: 'GET' });
+          this.state.version = typeof response.version === 'string' ? response.version : null;
+        } catch (err) {
+          this.state.version = null;
+        }
+        this.updateVersionLabel();
+      },
+      updateVersionLabel() {
+        if (!this.$appVersion) return;
+        if (this.state.version) {
+          this.$appVersion.textContent = `Version ${this.state.version}`;
+          this.$appVersion.classList.remove('hidden');
+        } else {
+          this.$appVersion.textContent = '';
+          this.$appVersion.classList.add('hidden');
+        }
       },
       toggleDropdown() {
         this.$userDropdown.classList.toggle('hidden');

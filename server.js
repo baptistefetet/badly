@@ -15,10 +15,12 @@ try {
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const IS_DEV = NODE_ENV === 'development';
 const DEBUG = process.env.DEBUG === 'true';
+const APP_VERSION = process.env.APP_VERSION || '1.0.1';
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const DATA_FILE = path.join(__dirname, process.env.DATA_FILE || 'data.json');
 
 console.log(`🚀 Environnement: ${NODE_ENV}${IS_DEV ? ' (DEV)' : ''}`);
+console.log(`🏷️  Version: ${APP_VERSION}`);
 console.log(`📁 Fichier de données: ${DATA_FILE}`);
 const INDEX_FILE = path.join(__dirname, 'index.html');
 const MANIFEST_FILE = path.join(__dirname, 'manifest.json');
@@ -1443,6 +1445,12 @@ function requestHandler(req, res) {
   if (req.method === 'GET' && pathname === '/listSessions') {
     debugLog(`${logPrefix}`);
     handleListSessions(req, res);
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/version') {
+    debugLog(`${logPrefix}`);
+    sendJson(res, 200, { ok: true, version: APP_VERSION });
     return;
   }
 
