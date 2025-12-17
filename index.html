@@ -1077,6 +1077,7 @@
           const durationLabel = this.formatDuration(session.durationMinutes);
           const priceLabel = Number(session.pricePerParticipant) === 0 ? 'Gratuit' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(session.pricePerParticipant);
           const participants = Array.isArray(session.participants) ? session.participants : [];
+          const followers = Array.isArray(session.followers) ? session.followers : [];
           const participantCount = session.participantCount ?? (participants.length + 1);
 
           const header = document.createElement('header');
@@ -1105,13 +1106,10 @@
           participantsLine.innerHTML = `<strong>Participants :</strong> ${participantsText}`;
 
           // Ligne des intéressés (followers)
-          const followers = session.followers || [];
-          let followersLine = null;
-          if (followers.length > 0) {
-            followersLine = document.createElement('div');
-            followersLine.className = 'participants-line';
-            followersLine.innerHTML = `<strong>Intéressés :</strong> ${followers.length}`;
-          }
+          const followersLine = document.createElement('div');
+          followersLine.className = 'participants-line';
+          const followersText = followers.length ? followers.join(', ') : 'Aucun pour le moment';
+          followersLine.innerHTML = `<strong>Intéressés :</strong> ${followersText}`;
 
           const actions = document.createElement('div');
           actions.className = 'session-actions';
@@ -1142,7 +1140,6 @@
             }
 
             // Bouton Suivre / Ne plus suivre
-            const followers = session.followers || [];
             const isFollowing = followers.includes(this.state.user.name);
             const followBtn = document.createElement('button');
             followBtn.className = isFollowing ? 'btn-secondary' : 'btn-primary';
@@ -1192,9 +1189,7 @@
 
           card.appendChild(header);
           card.appendChild(meta);
-          if (followersLine) {
-            card.appendChild(followersLine);
-          }
+          card.appendChild(followersLine);
           card.appendChild(participantsLine);
           card.appendChild(actions);
           list.appendChild(card);
