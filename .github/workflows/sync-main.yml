@@ -35,3 +35,8 @@ jobs:
           git push origin main
 
           echo "✅ main synchronized with dev"
+
+      - name: Trigger prod deploy
+        run: |
+          curl -X POST https://badly.ovh/webhook/deploy --fail --silent --show-error
+          echo "✅ Webhook de déploiement prod déclenché"
