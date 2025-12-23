@@ -15,7 +15,7 @@ try {
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const IS_DEV = NODE_ENV === 'development';
 const DEBUG = process.env.DEBUG === 'true';
-const APP_VERSION = process.env.APP_VERSION || '1.0.1';
+const APP_VERSION = '1.1.0';
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const DATA_FILE = path.join(__dirname, process.env.DATA_FILE || 'data.json');
 
