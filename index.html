@@ -253,6 +253,97 @@
       color: var(--text);
     }
 
+    /* Chat styles */
+    .chat-section {
+      margin-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      padding-top: 0.5rem;
+    }
+    .chat-toggle {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--primary);
+      list-style: none;
+    }
+    .chat-toggle::-webkit-details-marker {
+      display: none;
+    }
+    .chat-toggle::before {
+      content: '▶ ';
+      font-size: 0.7rem;
+      margin-right: 0.3rem;
+    }
+    details[open] .chat-toggle::before {
+      content: '▼ ';
+    }
+    .chat-messages {
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 0.5rem;
+      background: var(--surface);
+      border-radius: 8px;
+      margin: 0.5rem 0;
+    }
+    .chat-messages:empty::before {
+      content: 'Aucun message';
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .chat-message {
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .chat-message:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .chat-message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.25rem;
+    }
+    .chat-message-sender {
+      font-weight: 600;
+      color: var(--primary);
+      font-size: 0.9rem;
+    }
+    .chat-message-time {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .chat-message-text {
+      font-size: 0.9rem;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .chat-form {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .chat-form input {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .chat-form button {
+      padding: 0.5rem 1rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .chat-form button:hover {
+      opacity: 0.9;
+    }
+
     .empty-state {
       text-align: center;
       padding: 80px 20px;
@@ -1221,9 +1312,96 @@
           card.appendChild(meta);
           card.appendChild(followersLine);
           card.appendChild(participantsLine);
+
+          // Section Chat (visible pour organisateur, participants et followers)
+          const isFollower = this.state.user && followers.includes(this.state.user.name);
+          const canAccessChat = this.state.user && (isOrganizer || isParticipant || isFollower);
+          if (canAccessChat && !hasStarted) {
+            const chatSection = document.createElement('details');
+            chatSection.className = 'chat-section';
+
+            const messages = Array.isArray(session.messages) ? session.messages : [];
+            const chatToggle = document.createElement('summary');
+            chatToggle.className = 'chat-toggle';
+            chatToggle.textContent = `Chat (${messages.length})`;
+
+            const chatMessages = document.createElement('div');
+            chatMessages.className = 'chat-messages';
+            chatMessages.innerHTML = this.renderChatMessages(messages);
+
+            const chatForm = document.createElement('form');
+            chatForm.className = 'chat-form';
+            chatForm.innerHTML = `
+              <input type="text" placeholder="Votre message..." maxlength="500" required>
+              <button type="submit">Envoyer</button>
+            `;
+            chatForm.addEventListener('submit', (e) => {
+              e.preventDefault();
+              const input = chatForm.querySelector('input');
+              const text = input.value.trim();
+              if (text) {
+                this.sendChatMessage(session.id, text);
+                input.value = '';
+              }
+            });
+
+            chatSection.appendChild(chatToggle);
+            chatSection.appendChild(chatMessages);
+            chatSection.appendChild(chatForm);
+            card.appendChild(chatSection);
+          }
+
           card.appendChild(actions);
           list.appendChild(card);
         });
+      },
+      renderChatMessages(messages) {
+        if (!messages || messages.length === 0) {
+          return '';
+        }
+        return messages.map(msg => `
+          <div class="chat-message">
+            <div class="chat-message-header">
+              <span class="chat-message-sender">${this.escapeHtml(msg.sender)}</span>
+              <span class="chat-message-time">${this.formatChatTime(msg.timestamp)}</span>
+            </div>
+            <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
+          </div>
+        `).join('');
+      },
+      formatChatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+        // Même jour
+        if (date.toDateString() === now.toDateString()) {
+          return timeStr;
+        }
+
+        // Hier
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (date.toDateString() === yesterday.toDateString()) {
+          return `Hier ${timeStr}`;
+        }
+
+        // Autre jour
+        const dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+        return `${dateStr} ${timeStr}`;
+      },
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      },
+      async sendChatMessage(sessionId, text) {
+        try {
+          await this.api('/sendMessage', { sessionId, text });
+          this.refreshSessions();
+        } catch (err) {
+          this.toast(err.message, true);
+        }
       },
       formatDuration(minutes) {
         const total = Number(minutes) || 0;

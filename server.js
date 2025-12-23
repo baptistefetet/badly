@@ -49,6 +49,7 @@ try {
 // Limits to prevent excessive data file growth
 const MAX_USERS = 128;
 const MAX_SESSIONS = 16;
+const MAX_MESSAGES_PER_SESSION = 50;
 const REMINDER_MINUTES_BEFORE_START = 45;
 const REMINDER_CHECK_INTERVAL_MS = 60 * 1000;
 
@@ -314,6 +315,7 @@ function formatSessionForClient(session) {
     participants: session.participants,
     guests: session.guests || 0,
     followers: session.followers || [],
+    messages: session.messages || [],
     createdAt: session.createdAt,
     participantCount: Math.min(session.participants.length + 1 + (session.guests || 0), session.capacity)
   };
@@ -571,6 +573,7 @@ async function handleCreateSession(req, res) {
     participants: [],
     guests: 0,
     followers: [],
+    messages: [],
     createdAt: new Date().toISOString(),
     reminderSent: false
   };
@@ -957,6 +960,93 @@ async function handleUnfollowSession(req, res) {
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
 
+async function handleSendMessage(req, res) {
+  if (!validateContentType(req)) {
+    sendError(res, 400, 'Content-Type must be application/json');
+    return;
+  }
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+  const { data, user } = auth;
+
+  let payload;
+  try {
+    payload = await parseBody(req);
+  } catch (err) {
+    sendError(res, 400, err.message);
+    return;
+  }
+
+  if (!payload || typeof payload.sessionId !== 'string') {
+    sendError(res, 400, 'Identifiant session manquant');
+    return;
+  }
+
+  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  if (!session) {
+    sendError(res, 404, 'Session introuvable');
+    return;
+  }
+
+  // Vérifier que la session n'a pas commencé
+  if (sessionHasStarted(session)) {
+    sendError(res, 400, 'La session est déjà commencée');
+    return;
+  }
+
+  // Vérifier que l'utilisateur est organisateur, participant ou follower
+  const isOrganizer = session.organizer === user.name;
+  const isParticipant = session.participants.includes(user.name);
+  const isFollower = (session.followers || []).includes(user.name);
+  if (!isOrganizer && !isParticipant && !isFollower) {
+    sendError(res, 403, 'Vous devez être participant ou intéressé pour envoyer un message');
+    return;
+  }
+
+  // Valider le texte du message
+  if (!payload.text || typeof payload.text !== 'string') {
+    sendError(res, 400, 'Message manquant');
+    return;
+  }
+  const text = payload.text.trim();
+  if (text.length === 0) {
+    sendError(res, 400, 'Le message ne peut pas être vide');
+    return;
+  }
+  if (text.length > 500) {
+    sendError(res, 400, 'Le message ne peut pas dépasser 500 caractères');
+    return;
+  }
+
+  // Créer le message
+  const message = {
+    id: crypto.randomUUID(),
+    sender: user.name,
+    text: text,
+    timestamp: new Date().toISOString()
+  };
+
+  // Initialiser le tableau messages si nécessaire
+  if (!session.messages) {
+    session.messages = [];
+  }
+
+  // Ajouter le message et limiter à MAX_MESSAGES_PER_SESSION
+  session.messages.push(message);
+  if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
+    session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION);
+  }
+
+  writeData(data);
+
+  // Envoyer les notifications push (async)
+  sendChatMessageNotification(session, message, data).catch((err) => {
+    debugError('Erreur lors de l\'envoi des notifications de chat:', err);
+  });
+
+  sendJson(res, 200, { ok: true, message, session: formatSessionForClient(session) });
+}
+
 async function handleEditSession(req, res) {
   if (!validateContentType(req)) {
     sendError(res, 400, 'Content-Type must be application/json');
@@ -1228,6 +1318,31 @@ async function sendSessionReminderNotification(session, data) {
 
   await Promise.all(
     recipients.map((userName) =>
+      sendPushNotifications(data, title, body, tag, userName)
+    )
+  );
+}
+
+async function sendChatMessageNotification(session, message, data) {
+  // Destinataires : organizer + participants + followers (sauf sender)
+  const recipients = [
+    session.organizer,
+    ...(session.participants || []),
+    ...(session.followers || [])
+  ].filter((name) => name && name !== message.sender);
+
+  // Dédupliquer
+  const uniqueRecipients = [...new Set(recipients)];
+  if (uniqueRecipients.length === 0) return;
+
+  const title = `💬 ${message.sender}`;
+  const body = message.text.length > 100
+    ? message.text.substring(0, 97) + '...'
+    : message.text;
+  const tag = `session-${session.id}-chat`;
+
+  await Promise.all(
+    uniqueRecipients.map((userName) =>
       sendPushNotifications(data, title, body, tag, userName)
     )
   );
@@ -1520,6 +1635,15 @@ function requestHandler(req, res) {
   if (req.method === 'POST' && pathname === '/unfollowSession') {
     debugLog(`${logPrefix}`);
     handleUnfollowSession(req, res).catch((err) => {
+      debugError(`${logPrefix} error`, err);
+      sendError(res, 500, 'Erreur serveur');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/sendMessage') {
+    debugLog(`${logPrefix}`);
+    handleSendMessage(req, res).catch((err) => {
       debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });
