@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
   <title>Badly</title>
   <meta name="theme-color" content="#202245">
   <link rel="icon" href="/favicon.png" type="image/png">
@@ -878,7 +878,18 @@
         this.$main = document.querySelector('main');
         this.$header = document.querySelector('.app-header');
       },
+      disablePinchZoom() {
+        document.addEventListener('gesturestart', (event) => event.preventDefault());
+        document.addEventListener('gesturechange', (event) => event.preventDefault());
+        document.addEventListener('gestureend', (event) => event.preventDefault());
+        document.addEventListener('touchmove', (event) => {
+          if (event.touches.length > 1) {
+            event.preventDefault();
+          }
+        }, { passive: false });
+      },
       bindEvents() {
+        this.disablePinchZoom();
         document.addEventListener('click', (event) => {
           if (!this.$userDropdown) return;
           const isButton = event.target.closest('#user-button');
