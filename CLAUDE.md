@@ -42,6 +42,7 @@ Sessions contain the following fields:
 - `followers`: Array of usernames "interested" in the session (cannot include the organizer). Followers receive join/leave notifications and are displayed as "Intéressés" in the UI.
 - `createdAt`: ISO 8601 creation timestamp
 - `reminderSent`: Boolean flag to track if 45-minute reminder was sent
+- `messages`: Array of chat messages (see Chat System below)
 
 #### App Version
 The backend exposes an application version constant in `server.js` (`APP_VERSION`, default `1.0.1`) and a public endpoint:
@@ -116,6 +117,15 @@ VAPID_EMAIL=mailto:your@email.com
 - Guests count toward session capacity: `participantCount = participants.length + 1 (organizer) + guests`
 - Used for tracking non-registered players
 
+### Chat System
+Each session has an in-session chat allowing participants, organizers, and followers to communicate:
+- **Who can send messages**: Organizer, participants, and followers of the session
+- **Message structure**: `{ id, sender, text, timestamp }`
+- **Constraints**: Max 500 characters per message, max 50 messages per session (`MAX_MESSAGES_PER_SESSION`)
+- **Storage**: Messages are stored in the `messages` array within each session
+- **Notifications**: When a message is sent, push notifications are sent to all other participants (organizer + participants + followers, excluding the sender)
+- **UI**: Chat is accessible via a chat icon on each session card, showing unread indicator
+
 ### Push Notifications
 When to send notifications:
 1. **New session created**: Notify all subscribed users
@@ -123,6 +133,7 @@ When to send notifications:
 3. **Participant joins**: Notify organizer + followers when someone joins their session
 4. **Participant leaves**: Notify organizer + followers when someone leaves their session
 5. **Session reminder**: Notify all participants (organizer + participants) 45 minutes before session start
+6. **Chat message**: Notify organizer + participants + followers (excluding message sender)
 
 The service worker handles:
 - Displaying notifications with vibration
@@ -144,10 +155,12 @@ The service worker handles:
 ### Data Constraints
 - Max 128 users (`MAX_USERS`)
 - Max 16 sessions (`MAX_SESSIONS`)
+- Max 50 messages per session (`MAX_MESSAGES_PER_SESSION`)
 - Username: 3-20 chars, alphanumeric + underscore/hyphen
 - Password: 6-64 chars
 - Session capacity: 1-12 players
 - Session duration: 0-300 minutes
+- Chat message: 1-500 characters
 
 ### Authentication Flow
 1. User signs up → password hashed with static salt → stored in `data.json`
@@ -174,6 +187,7 @@ The service worker handles:
 - `POST /removeGuest` - Remove guest (organizer only, triggers notification if was full)
 - `POST /followSession` - Follow a session (adds current user to `session.followers`)
 - `POST /unfollowSession` - Unfollow a session (removes current user from `session.followers`)
+- `POST /sendMessage` - Send a chat message in a session (organizer, participants, or followers only)
 - `GET /vapidPublicKey` - Get VAPID public key for push
 - `POST /subscribePush` - Register push subscription
 - `POST /unsubscribePush` - Unregister push subscription
@@ -219,7 +233,7 @@ Notification functions in server.js:
 3. `sendParticipantJoinedNotification()` - when someone joins a session (organizer + followers)
 4. `sendParticipantLeftNotification()` - when someone leaves a session (organizer + followers)
 5. `sendSessionReminderNotification()` - 45-minute reminder (organizer + participants)
-4. `sendSessionReminderNotification()` - 45 minutes before session start (all participants)
+6. `sendChatMessageNotification()` - when a chat message is sent (organizer + participants + followers, excluding sender)
 
 All use the low-level `sendPushNotifications()` function. Also update service worker notification display in `service-worker.js`.
 
