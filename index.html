@@ -844,10 +844,14 @@
       },
       startAutoRefresh() {
         setInterval(() => {
-          if (this.state.user) {
+          if (this.state.user && !this.hasChatDraft()) {
             this.refreshSessions();
           }
         }, 60000);
+      },
+      hasChatDraft() {
+        return Array.from(document.querySelectorAll('.chat-form input'))
+          .some((input) => input.value.length > 0);
       },
       cacheElements() {
         this.$authModal = document.getElementById('auth-modal');

@@ -11,11 +11,12 @@ try {
   console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
 }
 
+const APP_VERSION = '1.1.2';
+
 // Configuration basée sur l'environnement
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const IS_DEV = NODE_ENV === 'development';
 const DEBUG = process.env.DEBUG === 'true';
-const APP_VERSION = '1.1.1';
 const PORT = parseInt(process.env.PORT, 10);
 const DATA_FILE = path.join(__dirname, process.env.DATA_FILE || 'data.json');
 
@@ -1201,7 +1202,7 @@ function formatSessionDate(session) {
 }
 
 // Fonction bas niveau pour envoyer une notification push
-async function sendPushNotifications(data, title, body, tag, targetUser = null) {
+async function sendPushNotifications(data, title, body, tag, targetUser = null, excludedUsers = null) {
   if (!webpush) {
     debugLog('web-push non disponible, notifications désactivées');
     return;
@@ -1211,6 +1212,17 @@ async function sendPushNotifications(data, title, body, tag, targetUser = null) 
   if (targetUser) {
     const normalizedTarget = targetUser.toLowerCase();
     subscriptions = subscriptions.filter(sub => sub.user && sub.user.toLowerCase() === normalizedTarget);
+  }
+  if (excludedUsers && excludedUsers.length > 0) {
+    const normalizedExcluded = new Set(
+      excludedUsers
+        .filter(Boolean)
+        .map((name) => name.toLowerCase())
+    );
+    subscriptions = subscriptions.filter((sub) => {
+      if (!sub.user) return true;
+      return !normalizedExcluded.has(sub.user.toLowerCase());
+    });
   }
 
   if (subscriptions.length === 0) {
@@ -1260,7 +1272,8 @@ async function sendNewSessionNotification(session, data) {
   const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}\nOrganisé par ${session.organizer}`;
   const tag = `session-${session.id}`;
 
-  return sendPushNotifications(data, title, body, tag);
+  const excludedUsers = session.organizer ? [session.organizer] : null;
+  return sendPushNotifications(data, title, body, tag, null, excludedUsers);
 }
 
 // Notification quand une place se libère
