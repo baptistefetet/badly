@@ -11,7 +11,7 @@ try {
   console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
 }
 
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 
 // Configuration basée sur l'environnement
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -551,11 +551,6 @@ async function handleCreateSession(req, res) {
     return;
   }
   const roundedPrice = Math.round(price * 100) / 100;
-
-  if (data.sessions.some((session) => session.club === normalizedClub && session.datetime === parsedDate.toISOString())) {
-    sendError(res, 400, 'Une session existe déjà pour ce club à cette date');
-    return;
-  }
 
   if (data.sessions.length >= MAX_SESSIONS) {
     sendError(res, 400, `Limite de sessions atteinte (${MAX_SESSIONS} maximum)`);
@@ -1148,17 +1143,6 @@ async function handleEditSession(req, res) {
     return;
   }
   const roundedPrice = Math.round(price * 100) / 100;
-
-  // Vérifier qu'une autre session n'existe pas déjà pour ce club à cette date
-  const conflictingSession = data.sessions.find((s) => 
-    s.id !== session.id && 
-    s.club === normalizedClub && 
-    s.datetime === parsedDate.toISOString()
-  );
-  if (conflictingSession) {
-    sendError(res, 400, 'Une session existe déjà pour ce club à cette date');
-    return;
-  }
 
   // Mettre à jour la session
   session.datetime = parsedDate.toISOString();
