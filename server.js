@@ -11,7 +11,7 @@ try {
   console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
 }
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 // Configuration basée sur l'environnement
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -27,6 +27,8 @@ const INDEX_FILE = path.join(__dirname, 'index.html');
 const MANIFEST_FILE = path.join(__dirname, 'manifest.json');
 const FAVICON_FILE = path.join(__dirname, 'favicon.png');
 const SW_FILE = path.join(__dirname, 'service-worker.js');
+const ROBOTS_FILE = path.join(__dirname, 'robots.txt');
+const SITEMAP_FILE = path.join(__dirname, 'sitemap.xml');
 const COOKIE_NAME = 'badlyAuth';
 const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const PASSWORD_SALT = 'badly-static-salt-v1';
@@ -1492,6 +1494,18 @@ function requestHandler(req, res) {
   if (req.method === 'GET' && pathname === '/service-worker.js') {
     debugLog(`${logPrefix} -> 200`);
     serveStaticFile(res, SW_FILE, 'application/javascript; charset=utf-8');
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/robots.txt') {
+    debugLog(`${logPrefix} -> 200`);
+    serveStaticFile(res, ROBOTS_FILE, 'text/plain; charset=utf-8');
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/sitemap.xml') {
+    debugLog(`${logPrefix} -> 200`);
+    serveStaticFile(res, SITEMAP_FILE, 'application/xml; charset=utf-8');
     return;
   }
 

@@ -1,10 +1,13 @@
 {
-  "name": "Badly",
+  "name": "Badly - Badminton Lyon",
   "short_name": "Badly",
+  "description": "Organise et rejoins des sessions de badminton entre amis à Lyon",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f4f4f8",
   "theme_color": "#202245",
+  "lang": "fr",
+  "categories": ["sports"],
   "icons": [
     {
       "src": "/favicon.png",
