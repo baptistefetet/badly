@@ -11,7 +11,7 @@ try {
   console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
 }
 
-const APP_VERSION = '1.1.4';
+const APP_VERSION = '1.2.0';
 
 // Configuration basée sur l'environnement
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -314,11 +314,10 @@ function formatSessionForClient(session) {
     pricePerParticipant: session.pricePerParticipant,
     organizer: session.organizer,
     participants: session.participants,
-    guests: session.guests || 0,
     followers: session.followers || [],
     messages: session.messages || [],
     createdAt: session.createdAt,
-    participantCount: Math.min(session.participants.length + 1 + (session.guests || 0), session.capacity)
+    participantCount: Math.min(session.participants.length + 1, session.capacity)
   };
 }
 
@@ -465,7 +464,8 @@ function respondWithSessions(res, data) {
       return dateA.getTime() - dateB.getTime();
     })
     .map(formatSessionForClient);
-  sendJson(res, 200, { ok: true, sessions, clubs: data.clubs });
+  const validUsernames = data.users.map((u) => u.name);
+  sendJson(res, 200, { ok: true, sessions, clubs: data.clubs, validUsernames });
 }
 
 function handleListSessions(req, res) {
@@ -567,7 +567,6 @@ async function handleCreateSession(req, res) {
     pricePerParticipant: roundedPrice,
     organizer: user.name,
     participants: [],
-    guests: 0,
     followers: [],
     messages: [],
     createdAt: new Date().toISOString(),
@@ -670,8 +669,7 @@ async function handleJoinSession(req, res) {
     return;
   }
 
-  const currentGuests = session.guests || 0;
-  if (session.participants.length + 1 + currentGuests >= session.capacity) {
+  if (session.participants.length + 1 >= session.capacity) {
     sendError(res, 400, 'Session complète');
     return;
   }
@@ -731,9 +729,7 @@ async function handleLeaveSession(req, res) {
   }
 
   // Vérifier si la session était pleine avant le départ
-  const participantsBeforeLeaving = session.participants.length;
-  const guestsCount = session.guests || 0;
-  const totalBeforeLeaving = participantsBeforeLeaving + 1 + guestsCount; // +1 pour l'organisateur
+  const totalBeforeLeaving = session.participants.length + 1; // +1 pour l'organisateur
   const wasSessionFull = totalBeforeLeaving >= session.capacity;
 
   session.participants = session.participants.filter((name) => name !== user.name);
@@ -754,7 +750,7 @@ async function handleLeaveSession(req, res) {
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
 
-async function handleAddGuest(req, res) {
+async function handleUpdateParticipants(req, res) {
   if (!validateContentType(req)) {
     sendError(res, 400, 'Content-Type must be application/json');
     return;
@@ -776,55 +772,8 @@ async function handleAddGuest(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
-  if (!session) {
-    sendError(res, 404, 'Session introuvable');
-    return;
-  }
-
-  if (session.organizer !== user.name) {
-    sendError(res, 403, 'Seul l\'organisateur peut ajouter des invités');
-    return;
-  }
-
-  if (sessionHasStarted(session)) {
-    sendError(res, 400, 'La session est déjà commencée');
-    return;
-  }
-
-  const currentGuests = session.guests || 0;
-  const currentTotal = session.participants.length + 1 + currentGuests;
-
-  if (currentTotal >= session.capacity) {
-    sendError(res, 400, 'Session complète');
-    return;
-  }
-
-  session.guests = currentGuests + 1;
-  writeData(data);
-
-  sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
-}
-
-async function handleRemoveGuest(req, res) {
-  if (!validateContentType(req)) {
-    sendError(res, 400, 'Content-Type must be application/json');
-    return;
-  }
-  const auth = requireAuth(req, res);
-  if (!auth) return;
-  const { data, user } = auth;
-
-  let payload;
-  try {
-    payload = await parseBody(req);
-  } catch (err) {
-    sendError(res, 400, err.message);
-    return;
-  }
-
-  if (!payload || typeof payload.sessionId !== 'string') {
-    sendError(res, 400, 'Identifiant session manquant');
+  if (!Array.isArray(payload.participants)) {
+    sendError(res, 400, 'Liste des participants invalide');
     return;
   }
 
@@ -835,7 +784,7 @@ async function handleRemoveGuest(req, res) {
   }
 
   if (session.organizer !== user.name) {
-    sendError(res, 403, 'Seul l\'organisateur peut retirer des invités');
+    sendError(res, 403, 'Seul l\'organisateur peut modifier les participants');
     return;
   }
 
@@ -844,21 +793,43 @@ async function handleRemoveGuest(req, res) {
     return;
   }
 
-  const currentGuests = session.guests || 0;
-  if (currentGuests <= 0) {
-    sendError(res, 400, 'Aucun invité à retirer');
+  // Valider et normaliser les noms des participants
+  const normalizedParticipants = [];
+  for (const name of payload.participants) {
+    if (typeof name !== 'string') {
+      sendError(res, 400, 'Nom de participant invalide');
+      return;
+    }
+    const trimmed = name.trim();
+    if (trimmed.length === 0 || trimmed.length > 20) {
+      sendError(res, 400, 'Nom de participant invalide (1-20 caractères)');
+      return;
+    }
+    // Ne pas autoriser l'organisateur dans la liste des participants
+    if (trimmed.toLowerCase() === session.organizer.toLowerCase()) {
+      sendError(res, 400, 'L\'organisateur ne peut pas être ajouté comme participant');
+      return;
+    }
+    normalizedParticipants.push(trimmed);
+  }
+
+  // Vérifier la capacité (participants + organisateur)
+  if (normalizedParticipants.length + 1 > session.capacity) {
+    sendError(res, 400, 'Trop de participants pour la capacité de la session');
     return;
   }
 
-  // Vérifier si la session était pleine avant de retirer l'invité
-  const totalBeforeRemoving = session.participants.length + 1 + currentGuests; // +1 pour l'organisateur
-  const wasSessionFull = totalBeforeRemoving >= session.capacity;
+  // Vérifier si la session était pleine avant la modification
+  const totalBefore = session.participants.length + 1;
+  const wasSessionFull = totalBefore >= session.capacity;
 
-  session.guests = currentGuests - 1;
+  // Mettre à jour les participants
+  session.participants = normalizedParticipants;
   writeData(data);
 
   // Si la session était pleine et qu'une place vient de se libérer, notifier
-  if (wasSessionFull) {
+  const totalAfter = normalizedParticipants.length + 1;
+  if (wasSessionFull && totalAfter < session.capacity) {
     sendSpotAvailableNotification(session, data).catch((err) => {
       debugError('Erreur lors de l\'envoi des notifications push:', err);
     });
@@ -1131,7 +1102,7 @@ async function handleEditSession(req, res) {
   }
 
   // Vérifier que la nouvelle capacité est suffisante pour les participants actuels
-  const currentTotal = session.participants.length + 1 + (session.guests || 0);
+  const currentTotal = session.participants.length + 1;
   if (normalizedCapacity < currentTotal) {
     sendError(res, 400, `La capacité ne peut être inférieure au nombre actuel de participants (${currentTotal})`);
     return;
@@ -1602,18 +1573,9 @@ function requestHandler(req, res) {
     return;
   }
 
-  if (req.method === 'POST' && pathname === '/addGuest') {
+  if (req.method === 'POST' && pathname === '/updateParticipants') {
     debugLog(`${logPrefix}`);
-    handleAddGuest(req, res).catch((err) => {
-      debugError(`${logPrefix} error`, err);
-      sendError(res, 500, 'Erreur serveur');
-    });
-    return;
-  }
-
-  if (req.method === 'POST' && pathname === '/removeGuest') {
-    debugLog(`${logPrefix}`);
-    handleRemoveGuest(req, res).catch((err) => {
+    handleUpdateParticipants(req, res).catch((err) => {
       debugError(`${logPrefix} error`, err);
       sendError(res, 500, 'Erreur serveur');
     });

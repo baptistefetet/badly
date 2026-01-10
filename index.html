@@ -486,6 +486,101 @@
       cursor: pointer;
     }
 
+    /* Participants Modal */
+    .participants-modal-card {
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .participants-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .participants-modal-header h2 {
+      margin: 0;
+      text-align: left;
+    }
+
+    .participants-list {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 100px;
+      max-height: 300px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    .participants-empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+      font-style: italic;
+    }
+
+    .participant-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+
+    .participant-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .participant-icon {
+      width: 24px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .participant-name {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .participant-remove {
+      background: transparent;
+      border: none;
+      color: var(--danger);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
+    }
+
+    .participant-remove:hover {
+      opacity: 1;
+    }
+
+    .add-participant-form {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .add-participant-form input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .add-participant-form button {
+      white-space: nowrap;
+    }
+
     .toast-container {
       position: fixed;
       left: 50%;
@@ -809,6 +904,24 @@
     </div>
   </div>
 
+  <div id="participants-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card participants-modal-card">
+      <div class="participants-modal-header">
+        <h2>Participants</h2>
+        <span id="participants-count" class="pill">0/0</span>
+      </div>
+      <div id="participants-list" class="participants-list"></div>
+      <div class="add-participant-form">
+        <input type="text" id="add-participant-input" placeholder="Nom du participant..." maxlength="20">
+        <button type="button" id="add-participant-btn" class="btn-primary">Ajouter</button>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="participants-cancel" class="btn-secondary">Annuler</button>
+        <button type="button" id="participants-save" class="btn-primary">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container"></div>
 
   <div id="install-prompt" class="install-prompt hidden">
@@ -884,6 +997,13 @@
         this.$installUnderstood = document.getElementById('install-understood');
         this.$main = document.querySelector('main');
         this.$header = document.querySelector('.app-header');
+        this.$participantsModal = document.getElementById('participants-modal');
+        this.$participantsList = document.getElementById('participants-list');
+        this.$participantsCount = document.getElementById('participants-count');
+        this.$addParticipantInput = document.getElementById('add-participant-input');
+        this.$addParticipantBtn = document.getElementById('add-participant-btn');
+        this.$participantsCancel = document.getElementById('participants-cancel');
+        this.$participantsSave = document.getElementById('participants-save');
       },
       disablePinchZoom() {
         document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -915,6 +1035,19 @@
         this.$backdrop.addEventListener('click', () => {
           if (!this.$sessionModal.classList.contains('hidden')) {
             this.closeSessionModal();
+          }
+          if (!this.$participantsModal.classList.contains('hidden')) {
+            this.closeParticipantsModal();
+          }
+        });
+
+        this.$participantsCancel.addEventListener('click', () => this.closeParticipantsModal());
+        this.$participantsSave.addEventListener('click', () => this.saveParticipants());
+        this.$addParticipantBtn.addEventListener('click', () => this.addParticipantFromInput());
+        this.$addParticipantInput.addEventListener('keypress', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            this.addParticipantFromInput();
           }
         });
 
@@ -1192,6 +1325,7 @@
           const response = await this.api('/listSessions', null, { method: 'GET' });
           this.state.sessions = response.sessions || [];
           this.state.clubs = response.clubs || [];
+          this.state.validUsernames = response.validUsernames || [];
           this.renderSessions();
         } catch (err) {
           this.toast(err.message, true);
@@ -1237,11 +1371,7 @@
           const participantsLine = document.createElement('div');
           participantsLine.className = 'participants-line';
           const others = participants.filter((name) => name !== session.organizer);
-          const guestCount = session.guests || 0;
-          let participantsText = others.length ? others.join(', ') : 'Aucun pour le moment';
-          if (guestCount > 0) {
-            participantsText += ` ${guestCount > 0 ? '+ ' + guestCount + ' invité' + (guestCount > 1 ? 's' : '') : ''}`;
-          }
+          const participantsText = others.length ? others.join(', ') : 'Aucun pour le moment';
           participantsLine.innerHTML = `<strong>Participants :</strong> ${participantsText}`;
 
           // Ligne des intéressés (followers)
@@ -1256,7 +1386,6 @@
           const isParticipant = this.state.user && participants.includes(this.state.user.name);
           const hasStarted = sessionDate.getTime() <= now;
           const isFull = participantCount >= session.capacity;
-          const currentGuests = session.guests || 0;
 
           if (this.state.user && !isOrganizer && !hasStarted) {
             if (isParticipant) {
@@ -1299,24 +1428,12 @@
             editBtn.textContent = 'Modifier';
             editBtn.addEventListener('click', () => this.openSessionModal(session));
             actions.appendChild(editBtn);
-          }
 
-          if (this.state.user && isOrganizer && !hasStarted) {
-            if (!isFull) {
-              const addGuestBtn = document.createElement('button');
-              addGuestBtn.className = 'btn-primary';
-              addGuestBtn.textContent = '+1 Invité';
-              addGuestBtn.addEventListener('click', () => this.addGuest(session.id));
-              actions.appendChild(addGuestBtn);
-            }
-
-            if (currentGuests > 0) {
-              const removeGuestBtn = document.createElement('button');
-              removeGuestBtn.className = 'btn-primary';
-              removeGuestBtn.textContent = '-1 Invité';
-              removeGuestBtn.addEventListener('click', () => this.removeGuest(session.id));
-              actions.appendChild(removeGuestBtn);
-            }
+            const participantsBtn = document.createElement('button');
+            participantsBtn.className = 'btn-primary';
+            participantsBtn.textContent = 'Participants';
+            participantsBtn.addEventListener('click', () => this.openParticipantsModal(session));
+            actions.appendChild(participantsBtn);
           }
 
           if (hasStarted && !actions.children.length) {
@@ -1492,19 +1609,123 @@
           this.toast(err.message, true);
         }
       },
-      async addGuest(sessionId) {
-        try {
-          await this.api('/addGuest', { sessionId });
-          this.toast('Invité ajouté');
-          this.refreshSessions();
-        } catch (err) {
-          this.toast(err.message, true);
+      openParticipantsModal(session) {
+        this.state.editingSession = session;
+        this.state.editingParticipants = [...session.participants];
+        this.renderParticipantsModal();
+        this.$participantsModal.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+      },
+      closeParticipantsModal() {
+        this.$participantsModal.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        this.state.editingSession = null;
+        this.state.editingParticipants = [];
+      },
+      renderParticipantsModal() {
+        const session = this.state.editingSession;
+        const participants = this.state.editingParticipants;
+        const validUsernames = this.state.validUsernames || [];
+        const capacity = session.capacity;
+        const spotsLeft = capacity - participants.length - 1; // -1 pour l'organisateur
+
+        // Liste des participants
+        const list = this.$participantsList;
+        list.innerHTML = '';
+
+        if (participants.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'participants-empty';
+          empty.textContent = 'Aucun participant';
+          list.appendChild(empty);
+        } else {
+          participants.forEach((name, index) => {
+            const item = document.createElement('div');
+            item.className = 'participant-item';
+
+            const isValidUser = validUsernames.some(u => u.toLowerCase() === name.toLowerCase());
+            const icon = document.createElement('span');
+            icon.className = 'participant-icon';
+            icon.textContent = isValidUser ? '\u2713' : '\u{1F464}';
+            icon.title = isValidUser ? 'Utilisateur inscrit' : 'Participant externe';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'participant-name';
+            nameSpan.textContent = name;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'participant-remove';
+            removeBtn.textContent = '\u00D7';
+            removeBtn.title = 'Retirer';
+            removeBtn.addEventListener('click', () => {
+              this.state.editingParticipants.splice(index, 1);
+              this.renderParticipantsModal();
+            });
+
+            item.appendChild(icon);
+            item.appendChild(nameSpan);
+            item.appendChild(removeBtn);
+            list.appendChild(item);
+          });
+        }
+
+        // Mise à jour du compteur
+        this.$participantsCount.textContent = `${participants.length + 1}/${capacity}`;
+
+        // Activer/désactiver le bouton d'ajout
+        const addBtn = this.$addParticipantBtn;
+        const input = this.$addParticipantInput;
+        if (spotsLeft <= 0) {
+          addBtn.disabled = true;
+          input.disabled = true;
+          input.placeholder = 'Session complete';
+        } else {
+          addBtn.disabled = false;
+          input.disabled = false;
+          input.placeholder = 'Nom du participant...';
         }
       },
-      async removeGuest(sessionId) {
+      addParticipantFromInput() {
+        const input = this.$addParticipantInput;
+        const name = input.value.trim();
+        if (!name) return;
+
+        const session = this.state.editingSession;
+        const participants = this.state.editingParticipants;
+        const spotsLeft = session.capacity - participants.length - 1;
+
+        if (spotsLeft <= 0) {
+          this.toast('Session complete', true);
+          return;
+        }
+
+        // Vérifier si le nom est déjà dans la liste
+        if (participants.some(p => p.toLowerCase() === name.toLowerCase())) {
+          this.toast('Ce participant est deja inscrit', true);
+          return;
+        }
+
+        // Vérifier si c'est l'organisateur
+        if (name.toLowerCase() === session.organizer.toLowerCase()) {
+          this.toast('L\'organisateur ne peut pas etre ajoute comme participant', true);
+          return;
+        }
+
+        participants.push(name);
+        input.value = '';
+        this.renderParticipantsModal();
+      },
+      async saveParticipants() {
+        const session = this.state.editingSession;
+        const participants = this.state.editingParticipants;
+
         try {
-          await this.api('/removeGuest', { sessionId });
-          this.toast('Invité retiré');
+          await this.api('/updateParticipants', {
+            sessionId: session.id,
+            participants: participants
+          });
+          this.toast('Participants mis a jour');
+          this.closeParticipantsModal();
           this.refreshSessions();
         } catch (err) {
           this.toast(err.message, true);

@@ -21,7 +21,7 @@ Badly is a badminton session planning application for Lyon, France. It's a Progr
 ### Data Architecture
 The application uses a simple file-based JSON database (`data.json`) with four main entities:
 - **users**: User accounts with normalized names and hashed passwords
-- **sessions**: Badminton sessions with datetime, club, level, capacity, participants, guests, reminderSent
+- **sessions**: Badminton sessions with datetime, club, level, capacity, participants, reminderSent
 - **clubs**: List of available badminton clubs
 - **pushSubscriptions**: Web push notification subscriptions (linked to users)
 
@@ -37,15 +37,14 @@ Sessions contain the following fields:
 - `capacity`: Maximum participants (1-12)
 - `pricePerParticipant`: Price per person (rounded to 2 decimals)
 - `organizer`: Username of session creator
-- `participants`: Array of participant usernames
-- `guests`: Number of anonymous guests (organizer-managed)
+- `participants`: Array of participant names (can include registered users or manually added names by the organizer)
 - `followers`: Array of usernames "interested" in the session (cannot include the organizer). Followers receive join/leave notifications and are displayed as "Intéressés" in the UI.
 - `createdAt`: ISO 8601 creation timestamp
 - `reminderSent`: Boolean flag to track if 45-minute reminder was sent
 - `messages`: Array of chat messages (see Chat System below)
 
 #### App Version
-The backend exposes an application version constant in `server.js` (`APP_VERSION`, default `1.0.1`) and a public endpoint:
+The backend exposes an application version constant in `server.js` (`APP_VERSION`, default `1.2.0`) and a public endpoint:
 - `GET /version` → `{ ok: true, version: "x.y.z" }`
 
 The frontend fetches this endpoint and displays the version in the user dropdown (under the "Se déconnecter" button).
@@ -55,7 +54,7 @@ The frontend fetches this endpoint and displays the version in the user dropdown
 2. **No Database**: JSON file storage with atomic writes
 3. **Cookie Auth**: Authentication state stored in `badlyAuth` cookie containing `{name, passwordHash}`
 4. **Auto-cleanup**: Expired sessions are purged automatically when listing sessions
-5. **Capacity Management**: Sessions track participants + organizer + guests vs capacity
+5. **Capacity Management**: Sessions track participants + organizer vs capacity
 
 ## Branches and Deployment
 
@@ -108,14 +107,16 @@ VAPID_EMAIL=mailto:your@email.com
 - Sessions are sorted by datetime and expire after `datetime + durationMinutes`
 
 ### User Permissions
-- **Organizers**: Can edit session, delete session, add/remove guests
+- **Organizers**: Can edit session, delete session, manage participants via popup
 - **Participants**: Can leave session (but not after it starts)
 - **Other users**: Can join session if not full
 
-### Guest System
-- Only organizers can add/remove anonymous guests
-- Guests count toward session capacity: `participantCount = participants.length + 1 (organizer) + guests`
-- Used for tracking non-registered players
+### Participant Management
+- Organizers can manage participants via a dedicated popup (accessible via "Participants" button)
+- Organizers can add any name (registered user or external participant)
+- Organizers can remove any participant from the session
+- Capacity is calculated as: `participantCount = participants.length + 1 (organizer)`
+- The frontend distinguishes registered users (✓ icon) from external participants (👤 icon)
 
 ### Chat System
 Each session has an in-session chat allowing participants, organizers, and followers to communicate:
@@ -129,7 +130,7 @@ Each session has an in-session chat allowing participants, organizers, and follo
 ### Push Notifications
 When to send notifications:
 1. **New session created**: Notify all subscribed users
-2. **Spot becomes available**: When participant leaves or guest removed from a full session
+2. **Spot becomes available**: When participant leaves or is removed from a full session
 3. **Participant joins**: Notify organizer + followers when someone joins their session
 4. **Participant leaves**: Notify organizer + followers when someone leaves their session
 5. **Session reminder**: Notify all participants (organizer + participants) 45 minutes before session start
@@ -177,14 +178,13 @@ The service worker handles:
 - `POST /signout` - Clear auth cookie
 
 **Authenticated:**
-- `GET /listSessions` - Get all sessions + clubs
+- `GET /listSessions` - Get all sessions + clubs + validUsernames (list of registered usernames)
 - `POST /createSession` - Create new session (triggers push notification to all users)
 - `POST /editSession` - Modify session (organizer only, resets reminderSent if datetime changes)
 - `POST /deleteSession` - Delete session (organizer only)
 - `POST /joinSession` - Join as participant (triggers notification to organizer + followers)
 - `POST /leaveSession` - Leave session (triggers notification to organizer + followers, and spot-available notification if was full)
-- `POST /addGuest` - Add anonymous guest (organizer only)
-- `POST /removeGuest` - Remove guest (organizer only, triggers notification if was full)
+- `POST /updateParticipants` - Update session participants list (organizer only, triggers spot-available notification if places freed)
 - `POST /followSession` - Follow a session (adds current user to `session.followers`)
 - `POST /unfollowSession` - Unfollow a session (removes current user from `session.followers`)
 - `POST /sendMessage` - Send a chat message in a session (organizer, participants, or followers only)
