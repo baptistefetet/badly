@@ -1827,15 +1827,26 @@
           throw new Error('Connexion au serveur impossible');
         }
 
-        let data;
-        try {
-          data = await response.json();
-        } catch (err) {
-          throw new Error('Réponse invalide');
+        const rawText = await response.text();
+        let data = null;
+        if (rawText) {
+          try {
+            data = JSON.parse(rawText);
+          } catch (err) {
+            data = null;
+          }
         }
 
-        if (!response.ok || !data || data.ok !== true) {
-          throw new Error((data && data.error) || 'Erreur serveur');
+        const fallbackMessage = rawText && !rawText.trim().startsWith('<') ? rawText.trim() : '';
+        if (!data) {
+          if (response.ok) {
+            throw new Error('Réponse invalide');
+          }
+          throw new Error(fallbackMessage || 'Erreur serveur');
+        }
+
+        if (!response.ok || data.ok !== true) {
+          throw new Error(data.error || fallbackMessage || 'Erreur serveur');
         }
 
         if (data.user) {
