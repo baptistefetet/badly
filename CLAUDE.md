@@ -237,5 +237,17 @@ Notification functions in server.js:
 
 All use the low-level `sendPushNotifications()` function. Also update service worker notification display in `service-worker.js`.
 
+### Calendar Integration (Frontend Only)
+When a user joins a session, a modal offers to add the event to their calendar:
+- **Google Calendar**: Opens a new tab with pre-filled event via URL parameters
+- **Apple Calendar**: Downloads a `.ics` file (RFC 5545, with line folding and character escaping)
+- **Outlook Web**: Opens Outlook Live with pre-filled event via URL parameters
+
+A "Calendrier" button also appears on session cards for participants and organizers (before session starts), allowing them to re-open the modal at any time.
+
+**Event details included**: title (`Badminton - {club}`), location (club name), level, organizer, price, duration, total capacity, and link to badly.ovh.
+
+No server changes required — the `/joinSession` endpoint already returns the full session object, and all calendar link/ICS generation is done client-side.
+
 ### Debugging
 Set `DEBUG = true` in server.js to enable console logging for all requests and push notification operations.

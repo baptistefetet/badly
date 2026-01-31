@@ -814,6 +814,63 @@
       background: var(--primary);
       color: #fff;
     }
+
+    /* Calendar Modal */
+    .calendar-modal-card {
+      text-align: center;
+    }
+
+    .calendar-modal-card p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .calendar-options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .calendar-option {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg);
+      text-decoration: none;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .calendar-option:hover {
+      border-color: var(--primary-light);
+      background: var(--surface);
+    }
+
+    .calendar-option-icon {
+      font-size: 1.6rem;
+      flex-shrink: 0;
+      width: 36px;
+      text-align: center;
+    }
+
+    .calendar-option-text {
+      text-align: left;
+    }
+
+    .calendar-option-label {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .calendar-option-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
   </style>
 </head>
 <body>
@@ -956,6 +1013,17 @@
     </div>
   </div>
 
+  <div id="calendar-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card calendar-modal-card">
+      <h2>Ajouter au calendrier</h2>
+      <p>Retrouve la session dans ton agenda</p>
+      <div id="calendar-options" class="calendar-options"></div>
+      <div class="form-actions">
+        <button type="button" id="calendar-close-btn" class="btn-secondary">Fermer</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container"></div>
 
   <div id="install-prompt" class="install-prompt hidden">
@@ -1038,6 +1106,9 @@
         this.$addParticipantBtn = document.getElementById('add-participant-btn');
         this.$participantsCancel = document.getElementById('participants-cancel');
         this.$participantsSave = document.getElementById('participants-save');
+        this.$calendarModal = document.getElementById('calendar-modal');
+        this.$calendarOptions = document.getElementById('calendar-options');
+        this.$calendarCloseBtn = document.getElementById('calendar-close-btn');
       },
       disablePinchZoom() {
         document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -1073,8 +1144,12 @@
           if (!this.$participantsModal.classList.contains('hidden')) {
             this.closeParticipantsModal();
           }
+          if (!this.$calendarModal.classList.contains('hidden')) {
+            this.closeCalendarModal();
+          }
         });
 
+        this.$calendarCloseBtn.addEventListener('click', () => this.closeCalendarModal());
         this.$participantsCancel.addEventListener('click', () => this.closeParticipantsModal());
         this.$participantsSave.addEventListener('click', () => this.saveParticipants());
         this.$addParticipantBtn.addEventListener('click', () => this.addParticipantFromInput());
@@ -1470,6 +1545,14 @@
             actions.appendChild(participantsBtn);
           }
 
+          if ((isOrganizer || isParticipant) && !hasStarted) {
+            const calBtn = document.createElement('button');
+            calBtn.className = 'btn-secondary';
+            calBtn.textContent = 'Calendrier';
+            calBtn.addEventListener('click', () => this.openCalendarForSession(session.id));
+            actions.appendChild(calBtn);
+          }
+
           if (hasStarted && !actions.children.length) {
             const info = document.createElement('span');
             info.className = 'badge';
@@ -1627,9 +1710,12 @@
       },
       async joinSession(sessionId) {
         try {
-          await this.api('/joinSession', { sessionId });
+          const response = await this.api('/joinSession', { sessionId });
           this.toast('Inscription enregistrée');
           this.refreshSessions();
+          if (response.session) {
+            this.showCalendarModal(response.session);
+          }
         } catch (err) {
           this.toast(err.message, true);
         }
@@ -2064,6 +2150,159 @@
           console.log('Abonné aux notifications push');
         } catch (error) {
           console.error('Erreur lors de l\'abonnement aux notifications:', error);
+        }
+      },
+      showCalendarModal(session) {
+        this.$calendarOptions.innerHTML = '';
+        const details = this.buildCalendarEventDetails(session);
+
+        // Google Calendar
+        const googleUrl = this.buildGoogleCalendarUrl(details);
+        this.$calendarOptions.appendChild(
+          this.createCalendarOption('📅', 'Google Calendar', 'Ouvrir dans Google Agenda', googleUrl, true)
+        );
+
+        // Apple Calendar (.ics)
+        this.$calendarOptions.appendChild(
+          this.createCalendarOption('🍎', 'Apple Calendar', 'Télécharger un fichier .ics', null, false, () => this.downloadIcsFile(details))
+        );
+
+        // Outlook Web
+        const outlookUrl = this.buildOutlookWebUrl(details);
+        this.$calendarOptions.appendChild(
+          this.createCalendarOption('📧', 'Outlook', 'Ouvrir dans Outlook Web', outlookUrl, true)
+        );
+
+        this.$calendarModal.classList.remove('hidden');
+        this.$backdrop.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+      },
+      closeCalendarModal() {
+        this.$calendarModal.classList.add('hidden');
+        this.$backdrop.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+      },
+      createCalendarOption(icon, label, sub, href, isLink, onClick) {
+        const el = document.createElement('a');
+        el.className = 'calendar-option';
+        if (isLink && href) {
+          el.href = href;
+          el.target = '_blank';
+          el.rel = 'noopener noreferrer';
+        } else if (onClick) {
+          el.href = '#';
+          el.addEventListener('click', (e) => {
+            e.preventDefault();
+            onClick();
+          });
+        }
+        el.innerHTML = `
+          <span class="calendar-option-icon">${icon}</span>
+          <span class="calendar-option-text">
+            <span class="calendar-option-label">${label}</span><br>
+            <span class="calendar-option-sub">${sub}</span>
+          </span>
+        `;
+        return el;
+      },
+      buildCalendarEventDetails(session) {
+        const start = new Date(session.datetime);
+        const end = new Date(start.getTime() + (session.durationMinutes || 90) * 60000);
+        const title = `Badminton - ${session.club}`;
+        const location = session.club;
+        const participants = Array.isArray(session.participants) ? session.participants : [];
+        const priceLabel = Number(session.pricePerParticipant) === 0 ? 'Gratuit' : `${session.pricePerParticipant} EUR`;
+        const description = [
+          `Niveau : ${session.level || 'Non précisé'}`,
+          `Organisateur : ${session.organizer}`,
+          `Tarif : ${priceLabel}`,
+          `Durée : ${this.formatDuration(session.durationMinutes)}`,
+          `Participants : ${session.capacity}`,
+          '',
+          'https://badly.ovh'
+        ].join('\n');
+
+        return { title, location, description, start, end, sessionId: session.id };
+      },
+      buildGoogleCalendarUrl(details) {
+        const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+        const params = new URLSearchParams({
+          action: 'TEMPLATE',
+          text: details.title,
+          dates: `${fmt(details.start)}/${fmt(details.end)}`,
+          details: details.description,
+          location: details.location
+        });
+        return `https://calendar.google.com/calendar/render?${params.toString()}`;
+      },
+      buildOutlookWebUrl(details) {
+        const params = new URLSearchParams({
+          path: '/calendar/action/compose',
+          rru: 'addevent',
+          subject: details.title,
+          startdt: details.start.toISOString(),
+          enddt: details.end.toISOString(),
+          location: details.location,
+          body: details.description.replace(/\n/g, '<br>')
+        });
+        return `https://outlook.live.com/calendar/0/action/compose?${params.toString()}`;
+      },
+      generateIcsContent(details) {
+        const foldLine = (line) => {
+          const bytes = new TextEncoder().encode(line);
+          if (bytes.length <= 75) return line;
+          const parts = [];
+          let current = '';
+          for (const char of line) {
+            const test = current + char;
+            if (new TextEncoder().encode(test).length > 75) {
+              parts.push(current);
+              current = ' ' + char;
+            } else {
+              current = test;
+            }
+          }
+          if (current) parts.push(current);
+          return parts.join('\r\n');
+        };
+        const escapeIcs = (text) => text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+        const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+        const now = new Date();
+        const lines = [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//Badly//badly.ovh//FR',
+          'CALSCALE:GREGORIAN',
+          'METHOD:PUBLISH',
+          'BEGIN:VEVENT',
+          foldLine(`UID:${details.sessionId}@badly.ovh`),
+          foldLine(`DTSTAMP:${fmt(now)}`),
+          foldLine(`DTSTART:${fmt(details.start)}`),
+          foldLine(`DTEND:${fmt(details.end)}`),
+          foldLine(`SUMMARY:${escapeIcs(details.title)}`),
+          foldLine(`DESCRIPTION:${escapeIcs(details.description)}`),
+          foldLine(`LOCATION:${escapeIcs(details.location)}`),
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ];
+        return lines.join('\r\n');
+      },
+      downloadIcsFile(details) {
+        const content = this.generateIcsContent(details);
+        const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `badminton-${details.sessionId}.ics`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      openCalendarForSession(sessionId) {
+        const session = this.state.sessions.find((s) => s.id === sessionId);
+        if (session) {
+          this.showCalendarModal(session);
         }
       },
       async unsubscribeFromPush() {
