@@ -777,15 +777,6 @@
       color: var(--primary);
     }
 
-    .install-icon {
-      display: inline-block;
-      padding: 2px 6px;
-      background: rgba(32, 34, 69, 0.1);
-      border-radius: 4px;
-      font-weight: 600;
-      color: var(--primary);
-    }
-
     .install-prompt-actions {
       display: flex;
       gap: 12px;
@@ -813,62 +804,6 @@
     .btn-understood {
       background: var(--primary);
       color: #fff;
-    }
-
-    /* Calendar Modal */
-    .calendar-modal-card {
-      text-align: center;
-    }
-
-    .calendar-modal-card p {
-      margin: 0;
-      color: var(--text-muted);
-      font-size: 0.95rem;
-    }
-
-    .calendar-options {
-      display: grid;
-      gap: 10px;
-    }
-
-    .calendar-option {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--bg);
-      text-decoration: none;
-      color: var(--text);
-      cursor: pointer;
-      transition: border-color 0.2s ease, background 0.2s ease;
-    }
-
-    .calendar-option:hover {
-      border-color: var(--primary-light);
-      background: var(--surface);
-    }
-
-    .calendar-option-icon {
-      font-size: 1.6rem;
-      flex-shrink: 0;
-      width: 36px;
-      text-align: center;
-    }
-
-    .calendar-option-text {
-      text-align: left;
-    }
-
-    .calendar-option-label {
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-
-    .calendar-option-sub {
-      font-size: 0.8rem;
-      color: var(--text-muted);
     }
 
   </style>
@@ -1013,17 +948,6 @@
     </div>
   </div>
 
-  <div id="calendar-modal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card calendar-modal-card">
-      <h2>Ajouter au calendrier</h2>
-      <p>Retrouve la session dans ton agenda</p>
-      <div id="calendar-options" class="calendar-options"></div>
-      <div class="form-actions">
-        <button type="button" id="calendar-close-btn" class="btn-secondary">Fermer</button>
-      </div>
-    </div>
-  </div>
-
   <div id="toast-container" class="toast-container"></div>
 
   <div id="install-prompt" class="install-prompt hidden">
@@ -1106,9 +1030,6 @@
         this.$addParticipantBtn = document.getElementById('add-participant-btn');
         this.$participantsCancel = document.getElementById('participants-cancel');
         this.$participantsSave = document.getElementById('participants-save');
-        this.$calendarModal = document.getElementById('calendar-modal');
-        this.$calendarOptions = document.getElementById('calendar-options');
-        this.$calendarCloseBtn = document.getElementById('calendar-close-btn');
       },
       disablePinchZoom() {
         document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -1144,12 +1065,7 @@
           if (!this.$participantsModal.classList.contains('hidden')) {
             this.closeParticipantsModal();
           }
-          if (!this.$calendarModal.classList.contains('hidden')) {
-            this.closeCalendarModal();
-          }
         });
-
-        this.$calendarCloseBtn.addEventListener('click', () => this.closeCalendarModal());
         this.$participantsCancel.addEventListener('click', () => this.closeParticipantsModal());
         this.$participantsSave.addEventListener('click', () => this.saveParticipants());
         this.$addParticipantBtn.addEventListener('click', () => this.addParticipantFromInput());
@@ -1545,14 +1461,6 @@
             actions.appendChild(participantsBtn);
           }
 
-          if ((isOrganizer || isParticipant) && !hasStarted) {
-            const calBtn = document.createElement('button');
-            calBtn.className = 'btn-secondary';
-            calBtn.textContent = 'Calendrier';
-            calBtn.addEventListener('click', () => this.openCalendarForSession(session.id));
-            actions.appendChild(calBtn);
-          }
-
           if (hasStarted && !actions.children.length) {
             const info = document.createElement('span');
             info.className = 'badge';
@@ -1665,10 +1573,13 @@
       },
       async createSession(payload) {
         try {
-          await this.api('/createSession', payload);
+          const response = await this.api('/createSession', payload);
           this.toast('Session créée');
           this.closeSessionModal();
           this.refreshSessions();
+          if (response.session) {
+            this.addToCalendarAutomatically(response.session);
+          }
         } catch (err) {
           this.toast(err.message, true);
         }
@@ -1714,7 +1625,7 @@
           this.toast('Inscription enregistrée');
           this.refreshSessions();
           if (response.session) {
-            this.showCalendarModal(response.session);
+            setTimeout(() => this.addToCalendarAutomatically(response.session), 500);
           }
         } catch (err) {
           this.toast(err.message, true);
@@ -1993,13 +1904,13 @@
             <div class="install-step">
               <div class="install-step-number">1</div>
               <div class="install-step-text">
-                Appuyez sur le bouton <strong>"Partager"</strong> <span class="install-icon">📤</span> en bas de Safari
+                Appuyez sur le bouton <strong>"Partager"</strong> en bas de Safari
               </div>
             </div>
             <div class="install-step">
               <div class="install-step-number">2</div>
               <div class="install-step-text">
-                Faites défiler et sélectionnez <strong>"Sur l'écran d'accueil"</strong> <span class="install-icon">➕</span>
+                Faites défiler et sélectionnez <strong>"Sur l'écran d'accueil"</strong>
               </div>
             </div>
             <div class="install-step">
@@ -2014,7 +1925,7 @@
             <div class="install-step">
               <div class="install-step-number">1</div>
               <div class="install-step-text">
-                Appuyez sur le menu <span class="install-icon">⋮</span> en haut à droite de Chrome
+                Appuyez sur le menu en haut à droite de Chrome
               </div>
             </div>
             <div class="install-step">
@@ -2152,58 +2063,27 @@
           console.error('Erreur lors de l\'abonnement aux notifications:', error);
         }
       },
-      showCalendarModal(session) {
-        this.$calendarOptions.innerHTML = '';
-        const details = this.buildCalendarEventDetails(session);
-
-        // Google Calendar
-        const googleUrl = this.buildGoogleCalendarUrl(details);
-        this.$calendarOptions.appendChild(
-          this.createCalendarOption('📅', 'Google Calendar', 'Ouvrir dans Google Agenda', googleUrl, true)
-        );
-
-        // Apple Calendar (.ics)
-        this.$calendarOptions.appendChild(
-          this.createCalendarOption('🍎', 'Apple Calendar', 'Télécharger un fichier .ics', null, false, () => this.downloadIcsFile(details))
-        );
-
-        // Outlook Web
-        const outlookUrl = this.buildOutlookWebUrl(details);
-        this.$calendarOptions.appendChild(
-          this.createCalendarOption('📧', 'Outlook', 'Ouvrir dans Outlook Web', outlookUrl, true)
-        );
-
-        this.$calendarModal.classList.remove('hidden');
-        this.$backdrop.classList.remove('hidden');
-        document.body.classList.add('modal-open');
+      isIOSDevice() {
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        return /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
       },
-      closeCalendarModal() {
-        this.$calendarModal.classList.add('hidden');
-        this.$backdrop.classList.add('hidden');
-        document.body.classList.remove('modal-open');
-      },
-      createCalendarOption(icon, label, sub, href, isLink, onClick) {
-        const el = document.createElement('a');
-        el.className = 'calendar-option';
-        if (isLink && href) {
-          el.href = href;
-          el.target = '_blank';
-          el.rel = 'noopener noreferrer';
-        } else if (onClick) {
-          el.href = '#';
-          el.addEventListener('click', (e) => {
-            e.preventDefault();
-            onClick();
-          });
+      addToCalendarAutomatically(session) {
+        if (!confirm('Ajouter au calendrier ?')) {
+          return;
         }
-        el.innerHTML = `
-          <span class="calendar-option-icon">${icon}</span>
-          <span class="calendar-option-text">
-            <span class="calendar-option-label">${label}</span><br>
-            <span class="calendar-option-sub">${sub}</span>
-          </span>
-        `;
-        return el;
+        
+        const details = this.buildCalendarEventDetails(session);
+        
+        if (this.isIOSDevice()) {
+          // iOS: télécharger un fichier .ics pour Apple Calendar
+          this.downloadIcsFile(details);
+          this.toast('📅 Événement ajouté au calendrier');
+        } else {
+          // Autres appareils: ouvrir Google Calendar
+          const googleUrl = this.buildGoogleCalendarUrl(details);
+          window.open(googleUrl, '_blank', 'noopener,noreferrer');
+          this.toast('📅 Ouverture de Google Calendar');
+        }
       },
       buildCalendarEventDetails(session) {
         const start = new Date(session.datetime);
@@ -2234,18 +2114,6 @@
           location: details.location
         });
         return `https://calendar.google.com/calendar/render?${params.toString()}`;
-      },
-      buildOutlookWebUrl(details) {
-        const params = new URLSearchParams({
-          path: '/calendar/action/compose',
-          rru: 'addevent',
-          subject: details.title,
-          startdt: details.start.toISOString(),
-          enddt: details.end.toISOString(),
-          location: details.location,
-          body: details.description.replace(/\n/g, '<br>')
-        });
-        return `https://outlook.live.com/calendar/0/action/compose?${params.toString()}`;
       },
       generateIcsContent(details) {
         const foldLine = (line) => {
@@ -2298,12 +2166,6 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      },
-      openCalendarForSession(sessionId) {
-        const session = this.state.sessions.find((s) => s.id === sessionId);
-        if (session) {
-          this.showCalendarModal(session);
-        }
       },
       async unsubscribeFromPush() {
         try {
