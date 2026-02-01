@@ -11,7 +11,7 @@ try {
   console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
 }
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 
 // Configuration basée sur l'environnement
 const NODE_ENV = process.env.NODE_ENV || 'production';

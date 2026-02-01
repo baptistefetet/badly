@@ -1311,12 +1311,10 @@
         if (this.isIOSDevice()) {
           // iOS: télécharger un fichier .ics pour Apple Calendar
           this.downloadIcsFile(details);
-          this.toast('📅 Événement ajouté au calendrier');
         } else {
           // Autres appareils: ouvrir Google Calendar
           const googleUrl = this.buildGoogleCalendarUrl(details);
           window.open(googleUrl, '_blank', 'noopener,noreferrer');
-          this.toast('📅 Ouverture de Google Calendar');
         }
       },
       buildCalendarEventDetails(session) {

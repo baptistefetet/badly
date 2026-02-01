@@ -194,11 +194,6 @@ The service worker handles:
 
 ## Common Pitfalls
 
-### Modifying data.json Structure
-Always update both:
-1. The `ensureDataFile()` seed structure
-2. The `readData()` validation logic
-
 ### Password Hashing
 The salt is static (`badly-static-salt-v1`). This is intentional for this simple app but not production-grade security.
 
