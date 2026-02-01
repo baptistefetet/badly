@@ -25,6 +25,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  line-height: 1.25;
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -252,14 +253,14 @@ main {
 
 /* Chat styles */
 .chat-section {
-  margin-top: 0.75rem;
-  border-top: 1px solid var(--border);
-  padding-top: 0.5rem;
+  margin-top: 0;
+  padding-top: 0;
 }
 .chat-toggle {
   cursor: pointer;
   font-weight: 600;
   color: var(--primary);
+  font-size: var(--font-size);
   list-style: none;
 }
 .chat-toggle::-webkit-details-marker {
