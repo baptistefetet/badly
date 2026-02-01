@@ -9,6 +9,10 @@
   --text: #1f2333;
   --text-muted: #5c6075;
   --border: #d5d7e3;
+  
+  --font-size: 14px;
+  --font-size-small: 12px;
+  --font-size-title: 18px;
 }
 
 * {
@@ -61,7 +65,7 @@ a {
   align-items: center;
   gap: 12px;
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: var(--font-size-title);
 }
 
 .brand-icon {
@@ -100,7 +104,7 @@ a {
   height: 24px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
-  font-size: 0.7rem;
+  font-size: var(--font-size-small);
 }
 
 .user-dropdown {
@@ -119,7 +123,7 @@ a {
 }
 
 .user-dropdown strong {
-  font-size: 0.95rem;
+  font-size: var(--font-size);
 }
 
 .user-dropdown button {
@@ -132,7 +136,7 @@ a {
 }
 
 .app-version {
-  font-size: 0.8rem;
+  font-size: var(--font-size-small);
   color: var(--text-muted);
   text-align: center;
 }
@@ -176,7 +180,7 @@ main {
   display: grid;
   gap: 6px;
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: var(--font-size);
 }
 
 .session-meta span {
@@ -239,7 +243,7 @@ main {
 
 .participants-line {
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: var(--font-size);
 }
 
 .participants-line strong {
@@ -263,7 +267,7 @@ main {
 }
 .chat-toggle::before {
   content: '▶ ';
-  font-size: 0.7rem;
+  font-size: var(--font-size-small);
   margin-right: 0.3rem;
 }
 details[open] .chat-toggle::before {
@@ -281,6 +285,7 @@ details[open] .chat-toggle::before {
   content: 'Aucun message';
   color: var(--text-muted);
   font-style: italic;
+  font-size: var(--font-size);
 }
 .chat-message {
   margin-bottom: 0.5rem;
@@ -301,14 +306,14 @@ details[open] .chat-toggle::before {
 .chat-message-sender {
   font-weight: 600;
   color: var(--primary);
-  font-size: 0.9rem;
+  font-size: var(--font-size);
 }
 .chat-message-time {
-  font-size: 0.75rem;
+  font-size: var(--font-size-small);
   color: var(--text-muted);
 }
 .chat-message-text {
-  font-size: 0.9rem;
+  font-size: var(--font-size);
   color: var(--text);
   word-break: break-word;
 }
@@ -322,7 +327,7 @@ details[open] .chat-toggle::before {
   padding: 0.5rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: var(--font-size);
 }
 .chat-form button {
   padding: 0.5rem 1rem;
@@ -331,7 +336,7 @@ details[open] .chat-toggle::before {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: var(--font-size);
   font-weight: 600;
 }
 .chat-form button:hover {
@@ -357,7 +362,7 @@ details[open] .chat-toggle::before {
   border: none;
   background: var(--accent);
   color: #1a1a1a;
-  font-size: 2rem;
+  font-size: 32px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 16px 30px rgba(255, 183, 3, 0.4);
@@ -444,7 +449,7 @@ form {
 label {
   display: grid;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: var(--font-size);
 }
 
 input,
@@ -452,7 +457,7 @@ select {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  font-size: 1rem;
+  font-size: var(--font-size);
   background: #fff;
 }
 
@@ -530,7 +535,7 @@ select:focus {
 .participant-icon {
   width: 24px;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--font-size);
 }
 
 .participant-name {
@@ -542,7 +547,7 @@ select:focus {
   background: transparent;
   border: none;
   color: var(--danger);
-  font-size: 20px;
+  font-size: var(--font-size-title);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
@@ -562,19 +567,21 @@ select:focus {
 
 .add-participant-form input {
   flex: 1;
+  min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: var(--font-size);
 }
 
 .add-participant-form button {
+  flex-shrink: 0;
   white-space: nowrap;
-  padding: 10px 18px;
+  padding: 10px 14px;
   border-radius: 8px;
   border: none;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--font-size);
   cursor: pointer;
 }
 
@@ -614,18 +621,18 @@ select:focus {
   background: var(--bg);
   border-radius: 999px;
   padding: 4px 10px;
-  font-size: 0.85rem;
+  font-size: var(--font-size);
   color: var(--text-muted);
 }
 
 .session-title {
-  font-size: 1.1rem;
+  font-size: var(--font-size-title);
   font-weight: 600;
 }
 
 .session-title span {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size);
   font-weight: 500;
 }
 
@@ -636,7 +643,7 @@ select:focus {
   color: var(--primary);
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: var(--font-size);
 }
 
 @media (min-width: 720px) {
@@ -692,7 +699,7 @@ select:focus {
 
 .install-prompt-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: var(--font-size-title);
   color: var(--primary);
 }
 
@@ -727,7 +734,7 @@ select:focus {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--font-size);
 }
 
 .install-step-text {
