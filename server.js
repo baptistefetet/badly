@@ -24,6 +24,7 @@ console.log(`🚀 Environnement: ${NODE_ENV}${IS_DEV ? ' (DEV)' : ''}`);
 console.log(`🏷️  Version: ${APP_VERSION}`);
 console.log(`📁 Fichier de données: ${DATA_FILE}`);
 const INDEX_FILE = path.join(__dirname, 'index.html');
+const STYLE_FILE = path.join(__dirname, 'style.css');
 const MANIFEST_FILE = path.join(__dirname, 'manifest.json');
 const FAVICON_FILE = path.join(__dirname, 'favicon.png');
 const SW_FILE = path.join(__dirname, 'service-worker.js');
@@ -1476,6 +1477,12 @@ function requestHandler(req, res) {
   if (req.method === 'GET' && pathname === '/') {
     debugLog(`${logPrefix} -> 200`);
     serveStaticFile(res, INDEX_FILE, 'text/html; charset=utf-8');
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/style.css') {
+    debugLog(`${logPrefix} -> 200`);
+    serveStaticFile(res, STYLE_FILE, 'text/css; charset=utf-8');
     return;
   }
 
