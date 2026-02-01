@@ -156,6 +156,9 @@ main {
 .sessions-list {
   display: grid;
   gap: 16px;
+  max-width: 650px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .session-card {
@@ -649,7 +652,7 @@ select:focus {
 
 @media (min-width: 720px) {
   .sessions-list {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
