@@ -25,6 +25,7 @@ console.log(`🏷️  Version: ${APP_VERSION}`);
 console.log(`📁 Fichier de données: ${DATA_FILE}`);
 const INDEX_FILE = path.join(__dirname, 'index.html');
 const STYLE_FILE = path.join(__dirname, 'style.css');
+const APP_JS_FILE = path.join(__dirname, 'app.js');
 const MANIFEST_FILE = path.join(__dirname, 'manifest.json');
 const FAVICON_FILE = path.join(__dirname, 'favicon.png');
 const SW_FILE = path.join(__dirname, 'service-worker.js');
@@ -1483,6 +1484,12 @@ function requestHandler(req, res) {
   if (req.method === 'GET' && pathname === '/style.css') {
     debugLog(`${logPrefix} -> 200`);
     serveStaticFile(res, STYLE_FILE, 'text/css; charset=utf-8');
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/app.js') {
+    debugLog(`${logPrefix} -> 200`);
+    serveStaticFile(res, APP_JS_FILE, 'application/javascript; charset=utf-8');
     return;
   }
 
