@@ -18,11 +18,10 @@ const NODE_ENV = process.env.NODE_ENV || 'production';
 const IS_DEV = NODE_ENV === 'development';
 const DEBUG = process.env.DEBUG === 'true';
 const PORT = parseInt(process.env.PORT, 10);
-const DATA_FILE = path.join(__dirname, process.env.DATA_FILE || 'data.json');
+const storage = require('./storage');
 
 console.log(`🚀 Environnement: ${NODE_ENV}${IS_DEV ? ' (DEV)' : ''}`);
 console.log(`🏷️  Version: ${APP_VERSION}`);
-console.log(`📁 Fichier de données: ${DATA_FILE}`);
 const INDEX_FILE = path.join(__dirname, 'index.html');
 const STYLE_FILE = path.join(__dirname, 'style.css');
 const APP_JS_FILE = path.join(__dirname, 'app.js');
@@ -58,134 +57,7 @@ const MAX_MESSAGES_PER_SESSION = 50;
 const REMINDER_MINUTES_BEFORE_START = 45;
 const REMINDER_CHECK_INTERVAL_MS = 60 * 1000;
 
-// In-memory cache for data.json
-let dataCache = null;
-
-// Logging functions
-function debugLog(...args) {
-  if (DEBUG) {
-    console.log(...args);
-  }
-}
-
-function debugError(...args) {
-  if (DEBUG) {
-    console.error(...args);
-  }
-}
-
-function getBackupPath(filePath) {
-  return `${filePath}.bak`;
-}
-
-function atomicWriteFileSync(targetPath, contents) {
-  const dir = path.dirname(targetPath);
-  const base = path.basename(targetPath);
-  const tmpPath = path.join(dir, `.${base}.tmp-${process.pid}-${Date.now()}`);
-
-  let fd;
-  try {
-    fd = fs.openSync(tmpPath, 'w', 0o600);
-    fs.writeFileSync(fd, contents, 'utf8');
-    fs.fsyncSync(fd);
-  } finally {
-    if (typeof fd === 'number') {
-      try {
-        fs.closeSync(fd);
-      } catch (err) {
-        // ignore
-      }
-    }
-  }
-
-  fs.renameSync(tmpPath, targetPath);
-
-  try {
-    const dirFd = fs.openSync(dir, 'r');
-    try {
-      fs.fsyncSync(dirFd);
-    } finally {
-      fs.closeSync(dirFd);
-    }
-  } catch (err) {
-    // Best effort only (not supported on all platforms/filesystems)
-  }
-}
-
-function readData() {
-  // Return cached data if available
-  if (dataCache !== null) {
-    return dataCache;
-  }
-
-  // Initialize data file if it doesn't exist
-  if (!fs.existsSync(DATA_FILE)) {
-    const seed = {
-      users: [],
-      sessions: [],
-      clubs: [],
-      pushSubscriptions: []
-    };
-    writeData(seed);
-    dataCache = seed;
-    return seed;
-  }
-
-  try {
-    const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    const parsed = raw.trim() ? JSON.parse(raw) : {};
-    if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = [];
-    if (!parsed.sessions || !Array.isArray(parsed.sessions)) parsed.sessions = [];
-    if (!parsed.clubs || !Array.isArray(parsed.clubs)) parsed.clubs = [];
-    if (!parsed.pushSubscriptions || !Array.isArray(parsed.pushSubscriptions)) parsed.pushSubscriptions = [];
-
-    // Cache the data
-    dataCache = parsed;
-    return parsed;
-  } catch (err) {
-    const backupPath = getBackupPath(DATA_FILE);
-    if (fs.existsSync(backupPath)) {
-      try {
-        const rawBackup = fs.readFileSync(backupPath, 'utf8');
-        const parsedBackup = rawBackup.trim() ? JSON.parse(rawBackup) : {};
-        if (!parsedBackup.users || !Array.isArray(parsedBackup.users)) parsedBackup.users = [];
-        if (!parsedBackup.sessions || !Array.isArray(parsedBackup.sessions)) parsedBackup.sessions = [];
-        if (!parsedBackup.clubs || !Array.isArray(parsedBackup.clubs)) parsedBackup.clubs = [];
-        if (!parsedBackup.pushSubscriptions || !Array.isArray(parsedBackup.pushSubscriptions)) parsedBackup.pushSubscriptions = [];
-
-        // Restore primary file from backup (best effort) and continue.
-        try {
-          console.warn('data.json invalide; restauration depuis data.json.bak');
-          writeData(parsedBackup);
-        } catch (restoreErr) {
-          debugError('Failed to restore data.json from backup:', restoreErr);
-        }
-
-        dataCache = parsedBackup;
-        return parsedBackup;
-      } catch (backupErr) {
-        debugError('Failed to read/parse backup data.json.bak:', backupErr);
-      }
-    }
-
-    throw new Error('Invalid data.json content');
-  }
-}
-
-function writeData(data) {
-  const serialized = `${JSON.stringify(data, null, 2)}\n`;
-  atomicWriteFileSync(DATA_FILE, serialized);
-
-  // Keep a last-known-good backup for recovery on startup.
-  try {
-    atomicWriteFileSync(getBackupPath(DATA_FILE), serialized);
-  } catch (err) {
-    debugError('Failed to write data.json backup:', err);
-  }
-
-  // Update cache after write
-  dataCache = data;
-}
+const { debugLog, debugError } = storage;
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(`${password}:${PASSWORD_SALT}`).digest('hex');
@@ -214,18 +86,18 @@ function getAuthPayload(req) {
   }
 }
 
-function findUser(data, name) {
+function findUser(users, name) {
   if (!name) return null;
   const normalized = name.trim().toLowerCase();
-  return data.users.find((u) => u.normalized === normalized) || null;
+  return users.find((u) => u.normalized === normalized) || null;
 }
 
-function authenticateRequest(req, data) {
+function authenticateRequest(req, users) {
   const payload = getAuthPayload(req);
   if (!payload || typeof payload.name !== 'string' || typeof payload.passwordHash !== 'string') {
     return null;
   }
-  const user = findUser(data, payload.name);
+  const user = findUser(users, payload.name);
   if (!user) return null;
   if (user.passwordHash !== payload.passwordHash) return null;
   return user;
@@ -325,15 +197,15 @@ function formatSessionForClient(session) {
   };
 }
 
-function purgeExpiredSessions(data) {
+function purgeExpiredSessions() {
   const now = new Date();
-  const remaining = data.sessions.filter((session) => !sessionHasExpired(session, now));
-  const removed = data.sessions.length !== remaining.length;
-  if (removed) {
-    data.sessions = remaining;
-    writeData(data);
+  const sessions = storage.readSessions();
+  const remaining = sessions.filter((session) => !sessionHasExpired(session, now));
+  if (remaining.length !== sessions.length) {
+    storage.writeSessions(remaining);
+    return true;
   }
-  return removed;
+  return false;
 }
 
 async function handleSignup(req, res) {
@@ -368,15 +240,15 @@ async function handleSignup(req, res) {
     return;
   }
 
-  const data = readData();
+  const users = storage.readUsers();
   const normalized = name.toLowerCase();
 
-  if (data.users.length >= MAX_USERS) {
+  if (users.length >= MAX_USERS) {
     sendError(res, 400, `Limite d'utilisateurs atteinte (${MAX_USERS} maximum)`);
     return;
   }
 
-  if (data.users.some((user) => user.normalized === normalized)) {
+  if (users.some((u) => u.normalized === normalized)) {
     sendError(res, 400, 'Nom déjà utilisé');
     return;
   }
@@ -386,11 +258,12 @@ async function handleSignup(req, res) {
     name,
     normalized,
     passwordHash,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    pushSubscriptions: []
   };
 
-  data.users.push(user);
-  writeData(data);
+  users.push(user);
+  storage.writeUsers(users);
 
   sendJson(res, 200, { ok: true, user: sanitizeUserForClient(user) }, setAuthCookieHeaders(user));
 }
@@ -415,8 +288,8 @@ async function handleSignin(req, res) {
   }
 
   const name = payload.name.trim();
-  const data = readData();
-  const user = findUser(data, name);
+  const users = storage.readUsers();
+  const user = findUser(users, name);
   if (!user) {
     setTimeout(() => sendError(res, 401, 'Authentification échouée'), 250);
     return;
@@ -447,41 +320,38 @@ async function handleSignout(req, res) {
 
 function requireAuth(req, res) {
   try {
-    const data = readData();
-    const user = authenticateRequest(req, data);
+    const users = storage.readUsers();
+    const user = authenticateRequest(req, users);
     if (!user) {
       sendError(res, 401, 'Authentification requise');
       return null;
     }
-    return { data, user };
+    return { user };
   } catch (err) {
     sendError(res, 500, 'Erreur serveur');
     return null;
   }
 }
 
-function respondWithSessions(res, data) {
-  const sessions = [...data.sessions]
+function respondWithSessions(res) {
+  const sessions = [...storage.readSessions()]
     .sort((a, b) => {
       const dateA = new Date(a.datetime);
       const dateB = new Date(b.datetime);
       return dateA.getTime() - dateB.getTime();
     })
     .map(formatSessionForClient);
-  const validUsernames = data.users.map((u) => u.name);
-  sendJson(res, 200, { ok: true, sessions, clubs: data.clubs, validUsernames });
+  const validUsernames = storage.readUsers().map((u) => u.name);
+  const clubs = storage.readClubs();
+  sendJson(res, 200, { ok: true, sessions, clubs, validUsernames });
 }
 
 function handleListSessions(req, res) {
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data } = auth;
 
-  purgeExpiredSessions(data);
-
-  // data may change after purge; reload for consistency
-  const fresh = readData();
-  respondWithSessions(res, fresh);
+  purgeExpiredSessions();
+  respondWithSessions(res);
 }
 
 async function handleCreateSession(req, res) {
@@ -491,7 +361,7 @@ async function handleCreateSession(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -526,12 +396,13 @@ async function handleCreateSession(req, res) {
     return;
   }
 
+  const clubs = storage.readClubs();
   const normalizedClub = typeof club === 'string' ? club.trim() : '';
   if (!normalizedClub) {
     sendError(res, 400, 'Club invalide');
     return;
   }
-  if (data.clubs.length && !data.clubs.includes(normalizedClub)) {
+  if (clubs.length && !clubs.includes(normalizedClub)) {
     sendError(res, 400, 'Club inconnu');
     return;
   }
@@ -556,7 +427,8 @@ async function handleCreateSession(req, res) {
   }
   const roundedPrice = Math.round(price * 100) / 100;
 
-  if (data.sessions.length >= MAX_SESSIONS) {
+  const sessions = storage.readSessions();
+  if (sessions.length >= MAX_SESSIONS) {
     sendError(res, 400, `Limite de sessions atteinte (${MAX_SESSIONS} maximum)`);
     return;
   }
@@ -577,11 +449,11 @@ async function handleCreateSession(req, res) {
     reminderSent: false
   };
 
-  data.sessions.push(session);
-  writeData(data);
+  sessions.push(session);
+  storage.writeSessions(sessions);
 
   // Envoyer les notifications push
-  sendNewSessionNotification(session, data).catch((err) => {
+  sendNewSessionNotification(session).catch((err) => {
     debugError('Erreur lors de l\'envoi des notifications push:', err);
   });
 
@@ -595,7 +467,7 @@ async function handleDeleteSession(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -610,13 +482,14 @@ async function handleDeleteSession(req, res) {
     return;
   }
 
-  const index = data.sessions.findIndex((session) => session.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const index = sessions.findIndex((session) => session.id === payload.sessionId);
   if (index === -1) {
     sendError(res, 404, 'Session introuvable');
     return;
   }
 
-  const session = data.sessions[index];
+  const session = sessions[index];
   const isOrganizer = session.organizer === user.name;
 
   if (!isOrganizer) {
@@ -624,8 +497,8 @@ async function handleDeleteSession(req, res) {
     return;
   }
 
-  data.sessions.splice(index, 1);
-  writeData(data);
+  sessions.splice(index, 1);
+  storage.writeSessions(sessions);
 
   sendJson(res, 200, { ok: true });
 }
@@ -637,7 +510,7 @@ async function handleJoinSession(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -652,7 +525,8 @@ async function handleJoinSession(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const session = sessions.find((s) => s.id === payload.sessionId);
   if (!session) {
     sendError(res, 404, 'Session introuvable');
     return;
@@ -679,10 +553,10 @@ async function handleJoinSession(req, res) {
   }
 
   session.participants.push(user.name);
-  writeData(data);
+  storage.writeSessions(sessions);
 
   // Notifier l'organisateur
-  sendParticipantJoinedNotification(session, user.name, data).catch((err) => {
+  sendParticipantJoinedNotification(session, user.name).catch((err) => {
     debugError('Erreur lors de l\'envoi de la notification à l\'organisateur:', err);
   });
 
@@ -696,7 +570,7 @@ async function handleLeaveSession(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -711,7 +585,8 @@ async function handleLeaveSession(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const session = sessions.find((s) => s.id === payload.sessionId);
   if (!session) {
     sendError(res, 404, 'Session introuvable');
     return;
@@ -737,16 +612,16 @@ async function handleLeaveSession(req, res) {
   const wasSessionFull = totalBeforeLeaving >= session.capacity;
 
   session.participants = session.participants.filter((name) => name !== user.name);
-  writeData(data);
+  storage.writeSessions(sessions);
 
   // Notifier l'organisateur et les followers du départ
-  sendParticipantLeftNotification(session, user.name, data).catch((err) => {
+  sendParticipantLeftNotification(session, user.name).catch((err) => {
     debugError('Erreur lors de l\'envoi de la notification de départ:', err);
   });
 
   // Si la session était pleine et qu'une place vient de se libérer, notifier
   if (wasSessionFull) {
-    sendSpotAvailableNotification(session, data).catch((err) => {
+    sendSpotAvailableNotification(session).catch((err) => {
       debugError('Erreur lors de l\'envoi des notifications push:', err);
     });
   }
@@ -761,7 +636,7 @@ async function handleUpdateParticipants(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -781,7 +656,8 @@ async function handleUpdateParticipants(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const session = sessions.find((s) => s.id === payload.sessionId);
   if (!session) {
     sendError(res, 404, 'Session introuvable');
     return;
@@ -829,12 +705,12 @@ async function handleUpdateParticipants(req, res) {
 
   // Mettre à jour les participants
   session.participants = normalizedParticipants;
-  writeData(data);
+  storage.writeSessions(sessions);
 
   // Si la session était pleine et qu'une place vient de se libérer, notifier
   const totalAfter = normalizedParticipants.length + 1;
   if (wasSessionFull && totalAfter < session.capacity) {
-    sendSpotAvailableNotification(session, data).catch((err) => {
+    sendSpotAvailableNotification(session).catch((err) => {
       debugError('Erreur lors de l\'envoi des notifications push:', err);
     });
   }
@@ -849,7 +725,7 @@ async function handleFollowSession(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -864,7 +740,8 @@ async function handleFollowSession(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const session = sessions.find((s) => s.id === payload.sessionId);
   if (!session) {
     sendError(res, 404, 'Session introuvable');
     return;
@@ -887,7 +764,7 @@ async function handleFollowSession(req, res) {
   }
 
   session.followers.push(user.name);
-  writeData(data);
+  storage.writeSessions(sessions);
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -899,7 +776,7 @@ async function handleUnfollowSession(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -914,7 +791,8 @@ async function handleUnfollowSession(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const session = sessions.find((s) => s.id === payload.sessionId);
   if (!session) {
     sendError(res, 404, 'Session introuvable');
     return;
@@ -926,7 +804,7 @@ async function handleUnfollowSession(req, res) {
   }
 
   session.followers = session.followers.filter((name) => name !== user.name);
-  writeData(data);
+  storage.writeSessions(sessions);
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -938,7 +816,7 @@ async function handleSendMessage(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -953,7 +831,8 @@ async function handleSendMessage(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const session = sessions.find((s) => s.id === payload.sessionId);
   if (!session) {
     sendError(res, 404, 'Session introuvable');
     return;
@@ -1008,10 +887,10 @@ async function handleSendMessage(req, res) {
     session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION);
   }
 
-  writeData(data);
+  storage.writeSessions(sessions);
 
   // Envoyer les notifications push (async)
-  sendChatMessageNotification(session, message, data).catch((err) => {
+  sendChatMessageNotification(session, message).catch((err) => {
     debugError('Erreur lors de l\'envoi des notifications de chat:', err);
   });
 
@@ -1025,7 +904,7 @@ async function handleEditSession(req, res) {
   }
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -1040,7 +919,8 @@ async function handleEditSession(req, res) {
     return;
   }
 
-  const session = data.sessions.find((s) => s.id === payload.sessionId);
+  const sessions = storage.readSessions();
+  const session = sessions.find((s) => s.id === payload.sessionId);
   if (!session) {
     sendError(res, 404, 'Session introuvable');
     return;
@@ -1082,12 +962,13 @@ async function handleEditSession(req, res) {
     return;
   }
 
+  const clubs = storage.readClubs();
   const normalizedClub = typeof club === 'string' ? club.trim() : '';
   if (!normalizedClub) {
     sendError(res, 400, 'Club invalide');
     return;
   }
-  if (data.clubs.length && !data.clubs.includes(normalizedClub)) {
+  if (clubs.length && !clubs.includes(normalizedClub)) {
     sendError(res, 400, 'Club inconnu');
     return;
   }
@@ -1130,7 +1011,7 @@ async function handleEditSession(req, res) {
     session.reminderSent = false;
   }
 
-  writeData(data);
+  storage.writeSessions(sessions);
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -1161,28 +1042,13 @@ function formatSessionDate(session) {
 }
 
 // Fonction bas niveau pour envoyer une notification push
-async function sendPushNotifications(data, title, body, tag, targetUser = null, excludedUsers = null) {
+async function sendPushNotifications(users, title, body, tag, targetUser = null, excludedUsers = null) {
   if (!webpush) {
     debugLog('web-push non disponible, notifications désactivées');
     return;
   }
 
-  let subscriptions = data.pushSubscriptions || [];
-  if (targetUser) {
-    const normalizedTarget = targetUser.toLowerCase();
-    subscriptions = subscriptions.filter(sub => sub.user && sub.user.toLowerCase() === normalizedTarget);
-  }
-  if (excludedUsers && excludedUsers.length > 0) {
-    const normalizedExcluded = new Set(
-      excludedUsers
-        .filter(Boolean)
-        .map((name) => name.toLowerCase())
-    );
-    subscriptions = subscriptions.filter((sub) => {
-      if (!sub.user) return true;
-      return !normalizedExcluded.has(sub.user.toLowerCase());
-    });
-  }
+  const subscriptions = storage.getAllSubscriptions(users, { targetUser, excludedUsers });
 
   if (subscriptions.length === 0) {
     debugLog(targetUser ? `Aucun abonnement push trouvé pour ${targetUser}` : 'Aucun abonnement push enregistré');
@@ -1197,7 +1063,7 @@ async function sendPushNotifications(data, title, body, tag, targetUser = null, 
   };
 
   const payload = JSON.stringify(notificationPayload);
-  const failedSubscriptions = [];
+  const failedEndpoints = [];
 
   for (const subscription of subscriptions) {
     try {
@@ -1207,46 +1073,52 @@ async function sendPushNotifications(data, title, body, tag, targetUser = null, 
       debugError(`Échec d'envoi de notification:`, err);
       // Si l'abonnement a expiré (410) ou est invalide, le marquer pour suppression
       if (err.statusCode === 410 || err.statusCode === 404) {
-        failedSubscriptions.push(subscription);
+        failedEndpoints.push(subscription.endpoint);
       }
     }
   }
 
   // Nettoyer les abonnements expirés
-  if (failedSubscriptions.length > 0) {
-    data.pushSubscriptions = data.pushSubscriptions.filter(
-      (sub) => !failedSubscriptions.some(
-        (failed) => failed.endpoint === sub.endpoint
-      )
-    );
-    writeData(data);
-    debugLog(`${failedSubscriptions.length} abonnements expirés supprimés`);
+  if (failedEndpoints.length > 0) {
+    const failedSet = new Set(failedEndpoints);
+    for (const user of users) {
+      if (user.pushSubscriptions) {
+        user.pushSubscriptions = user.pushSubscriptions.filter(
+          sub => !failedSet.has(sub.endpoint)
+        );
+      }
+    }
+    storage.writeUsers(users);
+    debugLog(`${failedEndpoints.length} abonnements expirés supprimés`);
   }
 }
 
 // Notification pour une nouvelle session
-async function sendNewSessionNotification(session, data) {
+async function sendNewSessionNotification(session) {
+  const users = storage.readUsers();
   const formattedDate = formatSessionDate(session);
   const title = '🏸 Nouvelle session de bad !';
   const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}\nOrganisé par ${session.organizer}`;
   const tag = `session-${session.id}`;
 
   const excludedUsers = session.organizer ? [session.organizer] : null;
-  return sendPushNotifications(data, title, body, tag, null, excludedUsers);
+  return sendPushNotifications(users, title, body, tag, null, excludedUsers);
 }
 
 // Notification quand une place se libère
-async function sendSpotAvailableNotification(session, data) {
+async function sendSpotAvailableNotification(session) {
+  const users = storage.readUsers();
   const formattedDate = formatSessionDate(session);
   const title = '🎾 Une place s\'est libérée !';
   const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}`;
   const tag = `session-${session.id}-available`;
 
-  return sendPushNotifications(data, title, body, tag);
+  return sendPushNotifications(users, title, body, tag);
 }
 
 // Notification pour l'organisateur et les followers quand quelqu'un s'inscrit
-async function sendParticipantJoinedNotification(session, participantName, data) {
+async function sendParticipantJoinedNotification(session, participantName) {
+  const users = storage.readUsers();
   const formattedDate = formatSessionDate(session);
   const title = '🏸 Nouveau participant !';
   const body = `${participantName} s'est inscrit à la session du ${formattedDate}`;
@@ -1257,13 +1129,14 @@ async function sendParticipantJoinedNotification(session, participantName, data)
 
   await Promise.all(
     recipients.map((userName) =>
-      sendPushNotifications(data, title, body, tag, userName)
+      sendPushNotifications(users, title, body, tag, userName)
     )
   );
 }
 
 // Notification pour l'organisateur et les followers quand quelqu'un se désinscrit
-async function sendParticipantLeftNotification(session, participantName, data) {
+async function sendParticipantLeftNotification(session, participantName) {
+  const users = storage.readUsers();
   const formattedDate = formatSessionDate(session);
   const title = '🏸 Départ d\'un participant';
   const body = `${participantName} s'est désinscrit de la session du ${formattedDate}`;
@@ -1274,12 +1147,13 @@ async function sendParticipantLeftNotification(session, participantName, data) {
 
   await Promise.all(
     recipients.map((userName) =>
-      sendPushNotifications(data, title, body, tag, userName)
+      sendPushNotifications(users, title, body, tag, userName)
     )
   );
 }
 
-async function sendSessionReminderNotification(session, data) {
+async function sendSessionReminderNotification(session) {
+  const users = storage.readUsers();
   const formattedDate = formatSessionDate(session);
   const title = '⏰ Session dans 45 minutes';
   const body = `${session.club} - ${formattedDate}\nOn se retrouve bientôt sur le terrain !`;
@@ -1290,12 +1164,13 @@ async function sendSessionReminderNotification(session, data) {
 
   await Promise.all(
     recipients.map((userName) =>
-      sendPushNotifications(data, title, body, tag, userName)
+      sendPushNotifications(users, title, body, tag, userName)
     )
   );
 }
 
-async function sendChatMessageNotification(session, message, data) {
+async function sendChatMessageNotification(session, message) {
+  const users = storage.readUsers();
   // Destinataires : organizer + participants + followers (sauf sender)
   const recipients = [
     session.organizer,
@@ -1315,7 +1190,7 @@ async function sendChatMessageNotification(session, message, data) {
 
   await Promise.all(
     uniqueRecipients.map((userName) =>
-      sendPushNotifications(data, title, body, tag, userName)
+      sendPushNotifications(users, title, body, tag, userName)
     )
   );
 }
@@ -1325,10 +1200,10 @@ async function handleSubscribePush(req, res) {
     sendError(res, 400, 'Content-Type must be application/json');
     return;
   }
-  
+
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data, user } = auth;
+  const { user } = auth;
 
   let payload;
   try {
@@ -1343,36 +1218,57 @@ async function handleSubscribePush(req, res) {
     return;
   }
 
-  // Mettre à jour l'abonnement existant (pour changer d'utilisateur) ou en créer un nouveau
-  const index = data.pushSubscriptions.findIndex(
+  const users = storage.readUsers();
+  const currentUser = users.find((u) => u.name === user.name);
+  if (!currentUser) {
+    sendError(res, 500, 'Utilisateur introuvable');
+    return;
+  }
+
+  if (!currentUser.pushSubscriptions) {
+    currentUser.pushSubscriptions = [];
+  }
+
+  // Mettre à jour l'abonnement existant ou en créer un nouveau
+  const index = currentUser.pushSubscriptions.findIndex(
     (sub) => sub.endpoint === payload.endpoint
   );
 
   if (index !== -1) {
-    const existing = data.pushSubscriptions[index];
+    const existing = currentUser.pushSubscriptions[index];
     const updated = {
-      ...existing,
-      ...payload,
-      user: user.name,
+      endpoint: payload.endpoint,
+      keys: payload.keys,
+      expirationTime: payload.expirationTime || null,
+      createdAt: existing.createdAt,
       updatedAt: new Date().toISOString()
     };
     const hasChanged =
-      existing.user !== updated.user ||
       JSON.stringify(existing.keys) !== JSON.stringify(updated.keys) ||
       existing.expirationTime !== updated.expirationTime;
     if (hasChanged) {
-      data.pushSubscriptions[index] = updated;
-      writeData(data);
+      currentUser.pushSubscriptions[index] = updated;
+      storage.writeUsers(users);
       debugLog(`Abonnement push mis à jour pour ${user.name}`);
     }
   } else {
+    // Supprimer cet endpoint d'autres users (changement de compte sur le même navigateur)
+    for (const u of users) {
+      if (u.name !== user.name && u.pushSubscriptions) {
+        u.pushSubscriptions = u.pushSubscriptions.filter(
+          (sub) => sub.endpoint !== payload.endpoint
+        );
+      }
+    }
+
     const subscription = {
-      ...payload,
-      user: user.name,
+      endpoint: payload.endpoint,
+      keys: payload.keys,
+      expirationTime: payload.expirationTime || null,
       createdAt: new Date().toISOString()
     };
-    data.pushSubscriptions.push(subscription);
-    writeData(data);
+    currentUser.pushSubscriptions.push(subscription);
+    storage.writeUsers(users);
     debugLog(`Nouvel abonnement push enregistré pour ${user.name}`);
   }
 
@@ -1384,10 +1280,9 @@ async function handleUnsubscribePush(req, res) {
     sendError(res, 400, 'Content-Type must be application/json');
     return;
   }
-  
+
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { data } = auth;
 
   let payload;
   try {
@@ -1402,13 +1297,22 @@ async function handleUnsubscribePush(req, res) {
     return;
   }
 
-  const beforeCount = data.pushSubscriptions.length;
-  data.pushSubscriptions = data.pushSubscriptions.filter(
-    (sub) => sub.endpoint !== payload.endpoint
-  );
+  const users = storage.readUsers();
+  let removed = false;
+  for (const user of users) {
+    if (user.pushSubscriptions) {
+      const before = user.pushSubscriptions.length;
+      user.pushSubscriptions = user.pushSubscriptions.filter(
+        (sub) => sub.endpoint !== payload.endpoint
+      );
+      if (user.pushSubscriptions.length < before) {
+        removed = true;
+      }
+    }
+  }
 
-  if (data.pushSubscriptions.length < beforeCount) {
-    writeData(data);
+  if (removed) {
+    storage.writeUsers(users);
     debugLog('Abonnement push supprimé');
   }
 
@@ -1417,11 +1321,11 @@ async function handleUnsubscribePush(req, res) {
 
 function checkUpcomingSessionReminders() {
   try {
-    const data = readData();
+    const sessions = storage.readSessions();
     const now = new Date();
     let updated = false;
 
-    for (const session of data.sessions) {
+    for (const session of sessions) {
       if (session.reminderSent) continue;
       if (sessionHasStarted(session, now)) continue;
 
@@ -1432,7 +1336,7 @@ function checkUpcomingSessionReminders() {
       const reminderWindowMs = REMINDER_MINUTES_BEFORE_START * 60 * 1000;
       if (msBeforeStart > 0 && msBeforeStart <= reminderWindowMs) {
         session.reminderSent = true;
-        sendSessionReminderNotification(session, data).catch((err) => {
+        sendSessionReminderNotification(session).catch((err) => {
           debugError('Erreur lors de l\'envoi du rappel de session:', err);
         });
         updated = true;
@@ -1440,7 +1344,7 @@ function checkUpcomingSessionReminders() {
     }
 
     if (updated) {
-      writeData(data);
+      storage.writeSessions(sessions);
     }
   } catch (err) {
     debugError('Erreur lors de la vérification des rappels de sessions:', err);

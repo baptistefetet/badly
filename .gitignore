@@ -5,6 +5,7 @@ data.json
 data.json.bak
 data-dev.json
 data-dev.json.bak
+data/
 .env
 .*
 !.github

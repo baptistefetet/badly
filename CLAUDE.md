@@ -19,13 +19,12 @@ Badly is a badminton session planning application for Lyon, France. It's a Progr
 - **Authentication**: Cookie-based auth with SHA-256 password hashing
 
 ### Data Architecture
-The application uses a simple file-based JSON database (`data.json`) with four main entities:
-- **users**: User accounts with normalized names and hashed passwords
-- **sessions**: Badminton sessions with datetime, club, level, capacity, participants, reminderSent
-- **clubs**: List of available badminton clubs
-- **pushSubscriptions**: Web push notification subscriptions (linked to users)
+The application uses file-based JSON storage split into three independent files in a `data/` directory, managed by `storage.js`:
+- **data/users.json**: User accounts with normalized names, hashed passwords, and push subscriptions (embedded in each user object)
+- **data/sessions.json**: Badminton sessions with datetime, club, level, capacity, participants, reminderSent
+- **data/clubs.json**: List of available badminton clubs
 
-The server implements an in-memory cache (`dataCache`) for `data.json` to optimize read performance. The cache is updated synchronously on every write operation.
+Each file has its own independent in-memory cache in `storage.js`, updated synchronously on every write. Only the modified file is rewritten (e.g., joining a session only writes `sessions.json`). The `data/` directory defaults to `./data` and can be overridden via `DATA_DIR` env variable. Push subscriptions are stored inside each user object as `user.pushSubscriptions[]`.
 
 #### Session Schema
 Sessions contain the following fields:
@@ -50,8 +49,8 @@ The backend exposes an application version constant in `server.js` (`APP_VERSION
 The frontend fetches this endpoint and displays the version in the user dropdown (under the "Se déconnecter" button).
 
 ### Key Design Patterns
-1. **Single File Architecture**: All backend logic in `server.js`, all frontend logic in `index.html`
-2. **No Database**: JSON file storage with atomic writes
+1. **Backend Architecture**: Core logic in `server.js`, storage layer in `storage.js`, frontend in `index.html`
+2. **No Database**: JSON file storage with atomic writes, split into 3 independent files
 3. **Cookie Auth**: Authentication state stored in `badlyAuth` cookie containing `{name, passwordHash}`
 4. **Auto-cleanup**: Expired sessions are purged automatically when listing sessions
 5. **Capacity Management**: Sessions track participants + organizer vs capacity
@@ -164,7 +163,7 @@ The service worker handles:
 - Chat message: 1-500 characters
 
 ### Authentication Flow
-1. User signs up → password hashed with static salt → stored in `data.json`
+1. User signs up → password hashed with static salt → stored in `data/users.json`
 2. Cookie set with `{name, passwordHash}` → 30 day expiry
 3. On page load: cookie validated against stored user
 4. All protected endpoints use `requireAuth()` middleware
@@ -198,7 +197,7 @@ The service worker handles:
 The salt is static (`badly-static-salt-v1`). This is intentional for this simple app but not production-grade security.
 
 ### Cache Invalidation
-The `dataCache` is synchronous with file writes. Don't read the file directly after a write - use `readData()` to get cached data.
+Each storage cache (`usersCache`, `sessionsCache`, `clubsCache`) is synchronous with file writes. Don't read files directly - use `storage.readUsers()`, `storage.readSessions()`, `storage.readClubs()` to get cached data.
 
 ### Session Time Validation
 The server allows sessions scheduled up to 5 minutes in the past to handle clock skew. Ensure this tolerance is maintained when modifying validation.
@@ -219,7 +218,7 @@ The server allows sessions scheduled up to 5 minutes in the past to handle clock
 5. Ensure validation in both frontend and backend
 
 ### Adding New Clubs
-Manually edit `data.json` and add club names to the `clubs` array. The frontend dynamically populates the dropdown from this list.
+Manually edit `data/clubs.json` and add club names to the array. The frontend dynamically populates the dropdown from this list.
 
 ### Modifying Notification Logic
 Notification functions in server.js:
