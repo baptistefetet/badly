@@ -11,7 +11,7 @@ try {
   console.log('dotenv non disponible - utilisation des variables d\'environnement système uniquement');
 }
 
-const APP_VERSION = '1.3.4';
+const APP_VERSION = '1.3.5';
 
 // Configuration basée sur l'environnement
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -19,6 +19,7 @@ const IS_DEV = NODE_ENV === 'development';
 const DEBUG = process.env.DEBUG === 'true';
 const PORT = parseInt(process.env.PORT, 10);
 const storage = require('./storage');
+const notifications = require('./notifications');
 
 console.log(`🚀 Environnement: ${NODE_ENV}${IS_DEV ? ' (DEV)' : ''}`);
 console.log(`🏷️  Version: ${APP_VERSION}`);
@@ -34,30 +35,29 @@ const COOKIE_NAME = 'badlyAuth';
 const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const PASSWORD_SALT = 'badly-static-salt-v1';
 
-// Configuration Web Push (VAPID keys - à générer avec: npx web-push generate-vapid-keys)
-// IMPORTANT: Remplacez ces clés par vos propres clés VAPID
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const VAPID_EMAIL = process.env.VAPID_EMAIL;
-
-let webpush;
-try {
-  webpush = require('web-push');
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  console.log(`Web Push configuré${IS_DEV ? ' (DEV)' : ''}`);
-} catch (err) {
-  console.warn('web-push non disponible - les notifications push ne fonctionneront pas');
-  console.warn('Installez avec: npm install web-push');
-}
-
 // Limits to prevent excessive data file growth
 const MAX_USERS = 128;
 const MAX_SESSIONS = 16;
 const MAX_MESSAGES_PER_SESSION = 50;
-const REMINDER_MINUTES_BEFORE_START = 45;
-const REMINDER_CHECK_INTERVAL_MS = 60 * 1000;
 
-const { debugLog, debugError } = storage;
+function debugLog(...args) {
+  if (DEBUG) {
+    console.log(...args);
+  }
+}
+
+function debugError(...args) {
+  if (DEBUG) {
+    console.error(...args);
+  }
+}
+
+function notifyAndCleanup(notifFn, ...args) {
+  const users = storage.readUsers();
+  notifFn(users, ...args)
+    .then(cleaned => { if (cleaned) storage.writeUsers(users); })
+    .catch(err => debugError('Notification error:', err));
+}
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(`${password}:${PASSWORD_SALT}`).digest('hex');
@@ -453,9 +453,7 @@ async function handleCreateSession(req, res) {
   storage.writeSessions(sessions);
 
   // Envoyer les notifications push
-  sendNewSessionNotification(session).catch((err) => {
-    debugError('Erreur lors de l\'envoi des notifications push:', err);
-  });
+  notifyAndCleanup(notifications.sendNewSessionNotification, session);
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -556,9 +554,7 @@ async function handleJoinSession(req, res) {
   storage.writeSessions(sessions);
 
   // Notifier l'organisateur
-  sendParticipantJoinedNotification(session, user.name).catch((err) => {
-    debugError('Erreur lors de l\'envoi de la notification à l\'organisateur:', err);
-  });
+  notifyAndCleanup(notifications.sendParticipantJoinedNotification, session, user.name);
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -615,15 +611,11 @@ async function handleLeaveSession(req, res) {
   storage.writeSessions(sessions);
 
   // Notifier l'organisateur et les followers du départ
-  sendParticipantLeftNotification(session, user.name).catch((err) => {
-    debugError('Erreur lors de l\'envoi de la notification de départ:', err);
-  });
+  notifyAndCleanup(notifications.sendParticipantLeftNotification, session, user.name);
 
   // Si la session était pleine et qu'une place vient de se libérer, notifier
   if (wasSessionFull) {
-    sendSpotAvailableNotification(session).catch((err) => {
-      debugError('Erreur lors de l\'envoi des notifications push:', err);
-    });
+    notifyAndCleanup(notifications.sendSpotAvailableNotification, session);
   }
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
@@ -710,9 +702,7 @@ async function handleUpdateParticipants(req, res) {
   // Si la session était pleine et qu'une place vient de se libérer, notifier
   const totalAfter = normalizedParticipants.length + 1;
   if (wasSessionFull && totalAfter < session.capacity) {
-    sendSpotAvailableNotification(session).catch((err) => {
-      debugError('Erreur lors de l\'envoi des notifications push:', err);
-    });
+    notifyAndCleanup(notifications.sendSpotAvailableNotification, session);
   }
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
@@ -890,9 +880,7 @@ async function handleSendMessage(req, res) {
   storage.writeSessions(sessions);
 
   // Envoyer les notifications push (async)
-  sendChatMessageNotification(session, message).catch((err) => {
-    debugError('Erreur lors de l\'envoi des notifications de chat:', err);
-  });
+  notifyAndCleanup(notifications.sendChatMessageNotification, session, message);
 
   sendJson(res, 200, { ok: true, message, session: formatSessionForClient(session) });
 }
@@ -1026,173 +1014,6 @@ function serveStaticFile(res, filePath, contentType) {
     res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': buffer.length });
     res.end(buffer);
   });
-}
-
-// Formater la date de session pour les notifications
-function formatSessionDate(session) {
-  const sessionDate = new Date(session.datetime);
-  const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  return dateFormatter.format(sessionDate);
-}
-
-// Fonction bas niveau pour envoyer une notification push
-async function sendPushNotifications(users, title, body, tag, targetUser = null, excludedUsers = null) {
-  if (!webpush) {
-    debugLog('web-push non disponible, notifications désactivées');
-    return;
-  }
-
-  const subscriptions = storage.getAllSubscriptions(users, { targetUser, excludedUsers });
-
-  if (subscriptions.length === 0) {
-    debugLog(targetUser ? `Aucun abonnement push trouvé pour ${targetUser}` : 'Aucun abonnement push enregistré');
-    return;
-  }
-
-  const notificationPayload = {
-    title,
-    body,
-    tag,
-    url: '/'
-  };
-
-  const payload = JSON.stringify(notificationPayload);
-  const failedEndpoints = [];
-
-  for (const subscription of subscriptions) {
-    try {
-      await webpush.sendNotification(subscription, payload);
-      debugLog(`Notification envoyée à ${subscription.endpoint.substring(0, 50)}...`);
-    } catch (err) {
-      debugError(`Échec d'envoi de notification:`, err);
-      // Si l'abonnement a expiré (410) ou est invalide, le marquer pour suppression
-      if (err.statusCode === 410 || err.statusCode === 404) {
-        failedEndpoints.push(subscription.endpoint);
-      }
-    }
-  }
-
-  // Nettoyer les abonnements expirés
-  if (failedEndpoints.length > 0) {
-    const failedSet = new Set(failedEndpoints);
-    for (const user of users) {
-      if (user.pushSubscriptions) {
-        user.pushSubscriptions = user.pushSubscriptions.filter(
-          sub => !failedSet.has(sub.endpoint)
-        );
-      }
-    }
-    storage.writeUsers(users);
-    debugLog(`${failedEndpoints.length} abonnements expirés supprimés`);
-  }
-}
-
-// Notification pour une nouvelle session
-async function sendNewSessionNotification(session) {
-  const users = storage.readUsers();
-  const formattedDate = formatSessionDate(session);
-  const title = '🏸 Nouvelle session de bad !';
-  const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}\nOrganisé par ${session.organizer}`;
-  const tag = `session-${session.id}`;
-
-  const excludedUsers = session.organizer ? [session.organizer] : null;
-  return sendPushNotifications(users, title, body, tag, null, excludedUsers);
-}
-
-// Notification quand une place se libère
-async function sendSpotAvailableNotification(session) {
-  const users = storage.readUsers();
-  const formattedDate = formatSessionDate(session);
-  const title = '🎾 Une place s\'est libérée !';
-  const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}`;
-  const tag = `session-${session.id}-available`;
-
-  return sendPushNotifications(users, title, body, tag);
-}
-
-// Notification pour l'organisateur et les followers quand quelqu'un s'inscrit
-async function sendParticipantJoinedNotification(session, participantName) {
-  const users = storage.readUsers();
-  const formattedDate = formatSessionDate(session);
-  const title = '🏸 Nouveau participant !';
-  const body = `${participantName} s'est inscrit à la session du ${formattedDate}`;
-  const tag = `session-${session.id}-join`;
-
-  // Notifier l'organisateur et les followers
-  const recipients = [session.organizer, ...(session.followers || [])].filter(Boolean);
-
-  await Promise.all(
-    recipients.map((userName) =>
-      sendPushNotifications(users, title, body, tag, userName)
-    )
-  );
-}
-
-// Notification pour l'organisateur et les followers quand quelqu'un se désinscrit
-async function sendParticipantLeftNotification(session, participantName) {
-  const users = storage.readUsers();
-  const formattedDate = formatSessionDate(session);
-  const title = '🏸 Départ d\'un participant';
-  const body = `${participantName} s'est désinscrit de la session du ${formattedDate}`;
-  const tag = `session-${session.id}-leave`;
-
-  // Notifier l'organisateur et les followers
-  const recipients = [session.organizer, ...(session.followers || [])].filter(Boolean);
-
-  await Promise.all(
-    recipients.map((userName) =>
-      sendPushNotifications(users, title, body, tag, userName)
-    )
-  );
-}
-
-async function sendSessionReminderNotification(session) {
-  const users = storage.readUsers();
-  const formattedDate = formatSessionDate(session);
-  const title = '⏰ Session dans 45 minutes';
-  const body = `${session.club} - ${formattedDate}\nOn se retrouve bientôt sur le terrain !`;
-  const tag = `session-${session.id}-reminder`;
-
-  const recipients = [session.organizer, ...(session.participants || [])].filter(Boolean);
-  if (recipients.length === 0) return;
-
-  await Promise.all(
-    recipients.map((userName) =>
-      sendPushNotifications(users, title, body, tag, userName)
-    )
-  );
-}
-
-async function sendChatMessageNotification(session, message) {
-  const users = storage.readUsers();
-  // Destinataires : organizer + participants + followers (sauf sender)
-  const recipients = [
-    session.organizer,
-    ...(session.participants || []),
-    ...(session.followers || [])
-  ].filter((name) => name && name !== message.sender);
-
-  // Dédupliquer
-  const uniqueRecipients = [...new Set(recipients)];
-  if (uniqueRecipients.length === 0) return;
-
-  const title = `💬 ${message.sender}`;
-  const body = message.text.length > 100
-    ? message.text.substring(0, 97) + '...'
-    : message.text;
-  const tag = `session-${session.id}-chat`;
-
-  await Promise.all(
-    uniqueRecipients.map((userName) =>
-      sendPushNotifications(users, title, body, tag, userName)
-    )
-  );
 }
 
 async function handleSubscribePush(req, res) {
@@ -1333,12 +1154,10 @@ function checkUpcomingSessionReminders() {
       if (Number.isNaN(start.getTime())) continue;
 
       const msBeforeStart = start.getTime() - now.getTime();
-      const reminderWindowMs = REMINDER_MINUTES_BEFORE_START * 60 * 1000;
+      const reminderWindowMs = notifications.REMINDER_MINUTES_BEFORE_START * 60 * 1000;
       if (msBeforeStart > 0 && msBeforeStart <= reminderWindowMs) {
         session.reminderSent = true;
-        sendSessionReminderNotification(session).catch((err) => {
-          debugError('Erreur lors de l\'envoi du rappel de session:', err);
-        });
+        notifyAndCleanup(notifications.sendSessionReminderNotification, session);
         updated = true;
       }
     }
@@ -1352,7 +1171,7 @@ function checkUpcomingSessionReminders() {
 }
 
 function handleGetVapidPublicKey(req, res) {
-  sendJson(res, 200, { ok: true, publicKey: VAPID_PUBLIC_KEY });
+  sendJson(res, 200, { ok: true, publicKey: notifications.VAPID_PUBLIC_KEY });
 }
 
 // Webhook pour le déploiement automatique (GitHub Actions)
@@ -1580,7 +1399,7 @@ function requestHandler(req, res) {
 }
 
 // Vérifier régulièrement si un rappel doit être envoyé
-setInterval(checkUpcomingSessionReminders, REMINDER_CHECK_INTERVAL_MS);
+setInterval(checkUpcomingSessionReminders, notifications.REMINDER_CHECK_INTERVAL_MS);
 setTimeout(checkUpcomingSessionReminders, 2000);
 
 const server = http.createServer(requestHandler);

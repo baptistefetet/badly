@@ -155,46 +155,11 @@ function writeClubs(clubs) {
   writeFile(CLUBS_FILE, clubs, (v) => { clubsCache = v; });
 }
 
-// --- Helper: collect push subscriptions from users ---
-function getAllSubscriptions(users, { targetUser = null, excludedUsers = null } = {}) {
-  const results = [];
-  for (const user of users) {
-    if (!user.pushSubscriptions || user.pushSubscriptions.length === 0) continue;
-
-    if (targetUser) {
-      if (user.name.toLowerCase() !== targetUser.toLowerCase()) continue;
-    }
-
-    if (excludedUsers && excludedUsers.length > 0) {
-      const normalizedExcluded = new Set(
-        excludedUsers.filter(Boolean).map((name) => name.toLowerCase())
-      );
-      if (normalizedExcluded.has(user.name.toLowerCase())) continue;
-    }
-
-    for (const sub of user.pushSubscriptions) {
-      results.push({
-        endpoint: sub.endpoint,
-        keys: sub.keys,
-        expirationTime: sub.expirationTime,
-        userName: user.name,
-        createdAt: sub.createdAt,
-        updatedAt: sub.updatedAt
-      });
-    }
-  }
-  return results;
-}
-
 module.exports = {
   readUsers,
   writeUsers,
   readSessions,
   writeSessions,
   readClubs,
-  writeClubs,
-  getAllSubscriptions,
-  getBackupPath,
-  debugLog,
-  debugError
+  writeClubs
 };
