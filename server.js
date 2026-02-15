@@ -52,13 +52,6 @@ function debugError(...args) {
   }
 }
 
-function notifyAndCleanup(notifFn, ...args) {
-  const users = storage.readUsers();
-  notifFn(users, ...args)
-    .then(cleaned => { if (cleaned) storage.writeUsers(users); })
-    .catch(err => debugError('Notification error:', err));
-}
-
 function hashPassword(password) {
   return crypto.createHash('sha256').update(`${password}:${PASSWORD_SALT}`).digest('hex');
 }
@@ -453,7 +446,9 @@ async function handleCreateSession(req, res) {
   storage.writeSessions(sessions);
 
   // Envoyer les notifications push
-  notifyAndCleanup(notifications.sendNewSessionNotification, session);
+  notifications.sendNewSessionNotification(session).catch((err) => {
+    debugError('Erreur lors de l\'envoi des notifications push:', err);
+  });
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -554,7 +549,9 @@ async function handleJoinSession(req, res) {
   storage.writeSessions(sessions);
 
   // Notifier l'organisateur
-  notifyAndCleanup(notifications.sendParticipantJoinedNotification, session, user.name);
+  notifications.sendParticipantJoinedNotification(session, user.name).catch((err) => {
+    debugError('Erreur lors de l\'envoi de la notification à l\'organisateur:', err);
+  });
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
 }
@@ -611,11 +608,15 @@ async function handleLeaveSession(req, res) {
   storage.writeSessions(sessions);
 
   // Notifier l'organisateur et les followers du départ
-  notifyAndCleanup(notifications.sendParticipantLeftNotification, session, user.name);
+  notifications.sendParticipantLeftNotification(session, user.name).catch((err) => {
+    debugError('Erreur lors de l\'envoi de la notification de départ:', err);
+  });
 
   // Si la session était pleine et qu'une place vient de se libérer, notifier
   if (wasSessionFull) {
-    notifyAndCleanup(notifications.sendSpotAvailableNotification, session);
+    notifications.sendSpotAvailableNotification(session).catch((err) => {
+      debugError('Erreur lors de l\'envoi des notifications push:', err);
+    });
   }
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
@@ -702,7 +703,9 @@ async function handleUpdateParticipants(req, res) {
   // Si la session était pleine et qu'une place vient de se libérer, notifier
   const totalAfter = normalizedParticipants.length + 1;
   if (wasSessionFull && totalAfter < session.capacity) {
-    notifyAndCleanup(notifications.sendSpotAvailableNotification, session);
+    notifications.sendSpotAvailableNotification(session).catch((err) => {
+      debugError('Erreur lors de l\'envoi des notifications push:', err);
+    });
   }
 
   sendJson(res, 200, { ok: true, session: formatSessionForClient(session) });
@@ -880,7 +883,9 @@ async function handleSendMessage(req, res) {
   storage.writeSessions(sessions);
 
   // Envoyer les notifications push (async)
-  notifyAndCleanup(notifications.sendChatMessageNotification, session, message);
+  notifications.sendChatMessageNotification(session, message).catch((err) => {
+    debugError('Erreur lors de l\'envoi des notifications de chat:', err);
+  });
 
   sendJson(res, 200, { ok: true, message, session: formatSessionForClient(session) });
 }
@@ -1140,38 +1145,8 @@ async function handleUnsubscribePush(req, res) {
   sendJson(res, 200, { ok: true });
 }
 
-function checkUpcomingSessionReminders() {
-  try {
-    const sessions = storage.readSessions();
-    const now = new Date();
-    let updated = false;
-
-    for (const session of sessions) {
-      if (session.reminderSent) continue;
-      if (sessionHasStarted(session, now)) continue;
-
-      const start = new Date(session.datetime);
-      if (Number.isNaN(start.getTime())) continue;
-
-      const msBeforeStart = start.getTime() - now.getTime();
-      const reminderWindowMs = notifications.REMINDER_MINUTES_BEFORE_START * 60 * 1000;
-      if (msBeforeStart > 0 && msBeforeStart <= reminderWindowMs) {
-        session.reminderSent = true;
-        notifyAndCleanup(notifications.sendSessionReminderNotification, session);
-        updated = true;
-      }
-    }
-
-    if (updated) {
-      storage.writeSessions(sessions);
-    }
-  } catch (err) {
-    debugError('Erreur lors de la vérification des rappels de sessions:', err);
-  }
-}
-
 function handleGetVapidPublicKey(req, res) {
-  sendJson(res, 200, { ok: true, publicKey: notifications.VAPID_PUBLIC_KEY });
+  sendJson(res, 200, { ok: true, publicKey: process.env.VAPID_PUBLIC_KEY });
 }
 
 // Webhook pour le déploiement automatique (GitHub Actions)
@@ -1398,9 +1373,7 @@ function requestHandler(req, res) {
   res.end(JSON.stringify({ ok: false, error: 'Not found' }));
 }
 
-// Vérifier régulièrement si un rappel doit être envoyé
-setInterval(checkUpcomingSessionReminders, notifications.REMINDER_CHECK_INTERVAL_MS);
-setTimeout(checkUpcomingSessionReminders, 2000);
+notifications.startReminderScheduler();
 
 const server = http.createServer(requestHandler);
 

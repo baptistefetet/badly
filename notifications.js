@@ -1,3 +1,5 @@
+const storage = require('./storage');
+
 const DEBUG = process.env.DEBUG === 'true';
 
 function debugLog(...args) {
@@ -77,20 +79,19 @@ function formatSessionDate(session) {
   return dateFormatter.format(sessionDate);
 }
 
-// Fonction bas niveau pour envoyer une notification push
-// Modifie users in-place (cleanup abonnements expirés)
-// Retourne true si des abonnements ont été nettoyés
-async function sendPushNotifications(users, title, body, tag, targetUser = null, excludedUsers = null) {
+// Envoyer une notification push et nettoyer les abonnements expirés
+async function sendPushNotifications(title, body, tag, targetUser = null, excludedUsers = null) {
   if (!webpush) {
     debugLog('web-push non disponible, notifications désactivées');
-    return false;
+    return;
   }
 
+  const users = storage.readUsers();
   const subscriptions = getAllSubscriptions(users, { targetUser, excludedUsers });
 
   if (subscriptions.length === 0) {
     debugLog(targetUser ? `Aucun abonnement push trouvé pour ${targetUser}` : 'Aucun abonnement push enregistré');
-    return false;
+    return;
   }
 
   const notificationPayload = {
@@ -125,90 +126,75 @@ async function sendPushNotifications(users, title, body, tag, targetUser = null,
         );
       }
     }
+    storage.writeUsers(users);
     debugLog(`${failedEndpoints.length} abonnements expirés supprimés`);
-    return true;
   }
-
-  return false;
 }
 
 // Notification pour une nouvelle session
-async function sendNewSessionNotification(users, session) {
+async function sendNewSessionNotification(session) {
   const formattedDate = formatSessionDate(session);
   const title = '🏸 Nouvelle session de bad !';
   const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}\nOrganisé par ${session.organizer}`;
   const tag = `session-${session.id}`;
 
   const excludedUsers = session.organizer ? [session.organizer] : null;
-  return sendPushNotifications(users, title, body, tag, null, excludedUsers);
+  await sendPushNotifications(title, body, tag, null, excludedUsers);
 }
 
 // Notification quand une place se libère
-async function sendSpotAvailableNotification(users, session) {
+async function sendSpotAvailableNotification(session) {
   const formattedDate = formatSessionDate(session);
   const title = '🎾 Une place s\'est libérée !';
   const body = `${session.club} - ${formattedDate}\nNiveau: ${session.level}`;
   const tag = `session-${session.id}-available`;
 
-  return sendPushNotifications(users, title, body, tag);
+  await sendPushNotifications(title, body, tag);
 }
 
 // Notification pour l'organisateur et les followers quand quelqu'un s'inscrit
-async function sendParticipantJoinedNotification(users, session, participantName) {
+async function sendParticipantJoinedNotification(session, participantName) {
   const formattedDate = formatSessionDate(session);
   const title = '🏸 Nouveau participant !';
   const body = `${participantName} s'est inscrit à la session du ${formattedDate}`;
   const tag = `session-${session.id}-join`;
 
   const recipients = [session.organizer, ...(session.followers || [])].filter(Boolean);
-  let cleaned = false;
 
   for (const userName of recipients) {
-    const result = await sendPushNotifications(users, title, body, tag, userName);
-    if (result) cleaned = true;
+    await sendPushNotifications(title, body, tag, userName);
   }
-
-  return cleaned;
 }
 
 // Notification pour l'organisateur et les followers quand quelqu'un se désinscrit
-async function sendParticipantLeftNotification(users, session, participantName) {
+async function sendParticipantLeftNotification(session, participantName) {
   const formattedDate = formatSessionDate(session);
   const title = '🏸 Départ d\'un participant';
   const body = `${participantName} s'est désinscrit de la session du ${formattedDate}`;
   const tag = `session-${session.id}-leave`;
 
   const recipients = [session.organizer, ...(session.followers || [])].filter(Boolean);
-  let cleaned = false;
 
   for (const userName of recipients) {
-    const result = await sendPushNotifications(users, title, body, tag, userName);
-    if (result) cleaned = true;
+    await sendPushNotifications(title, body, tag, userName);
   }
-
-  return cleaned;
 }
 
-async function sendSessionReminderNotification(users, session) {
+async function sendSessionReminderNotification(session) {
   const formattedDate = formatSessionDate(session);
   const title = '⏰ Session dans 45 minutes';
   const body = `${session.club} - ${formattedDate}\nOn se retrouve bientôt sur le terrain !`;
   const tag = `session-${session.id}-reminder`;
 
   const recipients = [session.organizer, ...(session.participants || [])].filter(Boolean);
-  if (recipients.length === 0) return false;
-
-  let cleaned = false;
+  if (recipients.length === 0) return;
 
   for (const userName of recipients) {
-    const result = await sendPushNotifications(users, title, body, tag, userName);
-    if (result) cleaned = true;
+    await sendPushNotifications(title, body, tag, userName);
   }
-
-  return cleaned;
 }
 
-async function sendChatMessageNotification(users, session, message) {
+async function sendChatMessageNotification(session, message) {
   const recipients = [
     session.organizer,
     ...(session.participants || []),
@@ -216,7 +202,7 @@ async function sendChatMessageNotification(users, session, message) {
   ].filter((name) => name && name !== message.sender);
 
   const uniqueRecipients = [...new Set(recipients)];
-  if (uniqueRecipients.length === 0) return false;
+  if (uniqueRecipients.length === 0) return;
 
   const title = `💬 ${message.sender}`;
   const body = message.text.length > 100
@@ -224,20 +210,50 @@ async function sendChatMessageNotification(users, session, message) {
     : message.text;
   const tag = `session-${session.id}-chat`;
 
-  let cleaned = false;
-
   for (const userName of uniqueRecipients) {
-    const result = await sendPushNotifications(users, title, body, tag, userName);
-    if (result) cleaned = true;
+    await sendPushNotifications(title, body, tag, userName);
   }
+}
 
-  return cleaned;
+function checkUpcomingSessionReminders() {
+  try {
+    const sessions = storage.readSessions();
+    const now = new Date();
+    let updated = false;
+
+    for (const session of sessions) {
+      if (session.reminderSent) continue;
+
+      const start = new Date(session.datetime);
+      if (Number.isNaN(start.getTime())) continue;
+      if (now.getTime() >= start.getTime()) continue;
+
+      const msBeforeStart = start.getTime() - now.getTime();
+      const reminderWindowMs = REMINDER_MINUTES_BEFORE_START * 60 * 1000;
+      if (msBeforeStart <= reminderWindowMs) {
+        session.reminderSent = true;
+        sendSessionReminderNotification(session).catch((err) => {
+          debugError('Erreur lors de l\'envoi du rappel de session:', err);
+        });
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      storage.writeSessions(sessions);
+    }
+  } catch (err) {
+    debugError('Erreur lors de la vérification des rappels de sessions:', err);
+  }
+}
+
+function startReminderScheduler() {
+  setInterval(checkUpcomingSessionReminders, REMINDER_CHECK_INTERVAL_MS);
+  setTimeout(checkUpcomingSessionReminders, 2000);
 }
 
 module.exports = {
-  VAPID_PUBLIC_KEY,
-  REMINDER_MINUTES_BEFORE_START,
-  REMINDER_CHECK_INTERVAL_MS,
+  startReminderScheduler,
   sendNewSessionNotification,
   sendSpotAvailableNotification,
   sendParticipantJoinedNotification,
