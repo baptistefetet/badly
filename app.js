@@ -61,6 +61,7 @@
         this.$addParticipantBtn = document.getElementById('add-participant-btn');
         this.$participantsCancel = document.getElementById('participants-cancel');
         this.$participantsSave = document.getElementById('participants-save');
+        this.$notificationIcon = document.getElementById('notification-icon');
       },
       disablePinchZoom() {
         document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -86,6 +87,10 @@
         });
 
         this.$signoutButton.addEventListener('click', () => this.signout());
+        this.$notificationIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.handleNotificationIconClick();
+        });
         this.$createButton.addEventListener('click', () => this.openSessionModal());
         this.$sessionCancel.addEventListener('click', () => this.closeSessionModal());
         this.$sessionDelete.addEventListener('click', () => this.deleteSessionFromModal());
@@ -266,12 +271,61 @@
       updateUserMenu() {
         if (!this.state.user) {
           this.$userButton.classList.add('hidden');
+          this.$notificationIcon.classList.add('hidden');
           return;
         }
         this.$userButton.classList.remove('hidden');
         this.$userName.textContent = this.state.user.name;
         this.$userButtonLabel.textContent = this.state.user.name;
         this.updateVersionLabel();
+        this.updateNotificationIcon();
+      },
+      isStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches
+          || window.navigator.standalone
+          || document.referrer.includes('android-app://');
+      },
+      updateNotificationIcon() {
+        this.$notificationIcon.classList.remove('hidden', 'denied', 'not-installed');
+        if ('Notification' in window) {
+          const permission = Notification.permission;
+          if (permission === 'granted') {
+            this.$notificationIcon.classList.add('hidden');
+          } else if (permission === 'denied') {
+            this.$notificationIcon.textContent = '🔕';
+            this.$notificationIcon.classList.add('denied');
+            this.$notificationIcon.title = 'Notifications bloquées — réactivez-les dans les paramètres du navigateur';
+          } else {
+            this.$notificationIcon.textContent = '🔕';
+            this.$notificationIcon.title = 'Cliquez pour activer les notifications';
+          }
+        } else if (!this.isStandalone()) {
+          this.$notificationIcon.textContent = '🔕';
+          this.$notificationIcon.classList.add('not-installed');
+          this.$notificationIcon.title = 'Installez l\'app pour recevoir les notifications';
+        } else {
+          this.$notificationIcon.classList.add('hidden');
+        }
+      },
+      async handleNotificationIconClick() {
+        if ('Notification' in window) {
+          const permission = Notification.permission;
+          if (permission === 'default') {
+            await this.requestNotificationPermission();
+            this.updateNotificationIcon();
+          } else {
+            this.toast('Notifications bloquées. Réactivez-les dans les paramètres de votre navigateur.', true);
+          }
+        } else if (!this.isStandalone()) {
+          const userAgent = navigator.userAgent || '';
+          const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+          const isAndroid = /android/i.test(userAgent);
+          if (isIOS || isAndroid) {
+            this.showInstallPrompt(isIOS ? 'ios' : 'android');
+          } else {
+            this.toast('Les notifications ne sont pas supportées par ce navigateur', true);
+          }
+        }
       },
       async loadVersion() {
         try {
@@ -1054,6 +1108,7 @@
           } else if (permission === 'denied') {
             console.log('Permission de notification refusée');
           }
+          this.updateNotificationIcon();
         } catch (error) {
           console.error('Erreur lors de la demande de permission:', error);
         }
