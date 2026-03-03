@@ -1,4 +1,5 @@
 {
+  "name": "badly",
   "dependencies": {
     "dotenv": "^17.2.3",
     "web-push": "^3.6.7"
