@@ -26,6 +26,6 @@ echo "📦 Installation des dépendances..."
 npm install --production --silent
 
 echo "🔄 Redémarrage du service $SERVICE..."
-touch "/tmp/${SERVICE}-deploy-trigger"
+touch "/run/deploy-triggers/${SERVICE}"
 
 echo "✅ Déploiement terminé (service $SERVICE, branche $BRANCH)"
