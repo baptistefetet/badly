@@ -208,6 +208,9 @@ main {
 }
 
 .session-level-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.8em;
   font-weight: 500;
   color: var(--primary);
@@ -215,6 +218,31 @@ main {
   padding: 3px 10px;
   border-radius: 999px;
   white-space: nowrap;
+}
+
+.session-level-pill svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.session-level-pill.level-debutant {
+  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.10);
+}
+
+.session-level-pill.level-debutant-moyen {
+  color: #1565c0;
+  background: rgba(21, 101, 192, 0.10);
+}
+
+.session-level-pill.level-moyen {
+  color: #e65100;
+  background: rgba(230, 81, 0, 0.10);
+}
+
+.session-level-pill.level-confirme {
+  color: #b71c1c;
+  background: rgba(183, 28, 28, 0.10);
 }
 
 .session-info-grid {

@@ -468,10 +468,11 @@
           const participantCount = session.participantCount ?? (participants.length + 1);
           const isFull = participantCount >= session.capacity;
 
+          const levelClass = session.level ? 'level-' + session.level.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '-').toLowerCase() : '';
           const header = document.createElement('header');
           header.innerHTML = `
             <div class="session-title">${session.club}</div>
-            ${session.level ? `<span class="session-level-pill">${session.level}</span>` : ''}
+            ${session.level ? `<span class="session-level-pill ${levelClass}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${session.level}</span>` : ''}
           `;
 
           const infoGrid = document.createElement('div');
