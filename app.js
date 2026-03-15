@@ -294,7 +294,9 @@
           } else if (permission === 'denied') {
             this.$notificationIcon.textContent = '🔕';
             this.$notificationIcon.classList.add('denied');
-            this.$notificationIcon.title = 'Notifications bloquées — réactivez-les dans les paramètres du navigateur';
+            this.$notificationIcon.title = this.isStandalone()
+              ? 'Notifications bloquées — réactivez-les dans les paramètres de l\'app (Paramètres > Applications > Badly > Notifications)'
+              : 'Notifications bloquées — réactivez-les dans les paramètres du navigateur';
           } else {
             this.$notificationIcon.textContent = '🔕';
             this.$notificationIcon.title = 'Cliquez pour activer les notifications';
@@ -314,7 +316,9 @@
             await this.requestNotificationPermission();
             this.updateNotificationIcon();
           } else {
-            this.toast('Notifications bloquées. Réactivez-les dans les paramètres de votre navigateur.', true);
+            this.toast(this.isStandalone()
+              ? 'Notifications bloquées. Réactivez-les dans Paramètres > Applications > Badly > Notifications.'
+              : 'Notifications bloquées. Réactivez-les dans les paramètres de votre navigateur.', true);
           }
         } else if (!this.isStandalone()) {
           const userAgent = navigator.userAgent || '';
@@ -462,40 +466,54 @@
           const participants = Array.isArray(session.participants) ? session.participants : [];
           const followers = Array.isArray(session.followers) ? session.followers : [];
           const participantCount = session.participantCount ?? (participants.length + 1);
+          const isFull = participantCount >= session.capacity;
 
           const header = document.createElement('header');
           header.innerHTML = `
-            <div class="session-title">${session.club} <span>${dateFormatter.format(sessionDate)} ${timeFormatter.format(sessionDate)}</span></div>
-            <span class="pill">${participantCount}/${session.capacity}</span>
+            <div class="session-title">${session.club}</div>
+            ${session.level ? `<span class="session-level-pill">${session.level}</span>` : ''}
           `;
 
-          const meta = document.createElement('div');
-          meta.className = 'session-meta';
-          meta.innerHTML = `
-            <span><strong>Organisateur :</strong> ${session.organizer}</span>
-            ${session.level ? `<span><strong>Niveau :</strong> ${session.level}</span>` : ''}
-            <span><strong>Durée :</strong> ${durationLabel}</span>
-            <span><strong>Tarif :</strong> ${priceLabel}</span>
+          const infoGrid = document.createElement('div');
+          infoGrid.className = 'session-info-grid';
+          infoGrid.innerHTML = `
+            <div class="info-row">
+              <span class="info-item" title="Date"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${dateFormatter.format(sessionDate)} • ${timeFormatter.format(sessionDate)}</span>
+              <span class="info-item" title="Durée"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${durationLabel}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-item" title="Tarif"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> ${priceLabel}</span>
+              <span class="info-item ${isFull ? 'info-full' : ''}" title="Participants"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> ${participantCount}/${session.capacity}</span>
+            </div>
           `;
 
-          const participantsLine = document.createElement('div');
-          participantsLine.className = 'participants-line';
           const others = participants.filter((name) => name !== session.organizer);
-          const participantsText = others.length ? others.join(', ') : 'Aucun pour le moment';
-          participantsLine.innerHTML = `<strong>Participants :</strong> ${participantsText}`;
+          const allParticipants = [session.organizer, ...others];
+          const participantsList = allParticipants.map((name, i) => 
+            i === 0 ? `<span class="people-name people-organizer">${name}</span>` : `<span class="people-name">${name}</span>`
+          ).join('');
+          const followersList = followers.length 
+            ? followers.map(name => `<span class="people-name">${name}</span>`).join('') 
+            : `<span class="people-empty">—</span>`;
 
-          // Ligne des intéressés (followers)
-          const followersLine = document.createElement('div');
-          followersLine.className = 'participants-line';
-          const followersText = followers.length ? followers.join(', ') : 'Aucun pour le moment';
-          followersLine.innerHTML = `<strong>Intéressés :</strong> ${followersText}`;
+          const peopleGrid = document.createElement('div');
+          peopleGrid.className = 'people-grid';
+          peopleGrid.innerHTML = `
+            <div class="people-col">
+              <div class="people-header">Participants</div>
+              ${participantsList}
+            </div>
+            <div class="people-col">
+              <div class="people-header">Intéressés</div>
+              ${followersList}
+            </div>
+          `;
 
           const actions = document.createElement('div');
           actions.className = 'session-actions';
           const isOrganizer = this.state.user && session.organizer === this.state.user.name;
           const isParticipant = this.state.user && participants.includes(this.state.user.name);
           const hasStarted = sessionDate.getTime() <= now;
-          const isFull = participantCount >= session.capacity;
 
           if (this.state.user && !isOrganizer && !hasStarted) {
             if (isParticipant) {
@@ -554,9 +572,8 @@
           }
 
           card.appendChild(header);
-          card.appendChild(meta);
-          card.appendChild(followersLine);
-          card.appendChild(participantsLine);
+          card.appendChild(infoGrid);
+          card.appendChild(peopleGrid);
 
           // Section Chat (visible pour organisateur, participants et followers)
           const isFollower = this.state.user && followers.includes(this.state.user.name);
