@@ -183,7 +183,7 @@ main {
 .sessions-list {
   display: grid;
   gap: 16px;
-  max-width: 650px;
+  max-width: 420px;
   width: 100%;
   margin: 0 auto;
 }
@@ -207,6 +207,53 @@ main {
   justify-content: space-between;
 }
 
+.session-level-pill {
+  font-size: 0.8em;
+  font-weight: 500;
+  color: var(--primary);
+  background: rgba(32, 34, 69, 0.08);
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.session-info-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.info-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.info-item svg {
+  flex-shrink: 0;
+  color: var(--primary);
+  opacity: 0.7;
+}
+
+.info-item.info-full {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.info-item.info-full svg {
+  color: var(--danger);
+  opacity: 1;
+}
+
 .session-meta {
   display: grid;
   gap: 6px;
@@ -214,7 +261,7 @@ main {
   font-size: var(--font-size);
 }
 
-.session-meta span {
+.session-meta > span {
   display: flex;
   gap: 6px;
   align-items: center;
@@ -272,13 +319,43 @@ main {
   align-items: center;
 }
 
-.participants-line {
-  color: var(--text-muted);
+.people-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
   font-size: var(--font-size);
 }
 
-.participants-line strong {
+.people-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.people-col:last-child {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.people-header {
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.people-name {
   color: var(--text);
+}
+
+.people-organizer {
+  font-weight: 700;
+}
+
+.people-empty {
+  color: var(--text-muted);
 }
 
 /* Chat styles */
