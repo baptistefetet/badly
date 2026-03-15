@@ -294,7 +294,9 @@
           } else if (permission === 'denied') {
             this.$notificationIcon.textContent = '🔕';
             this.$notificationIcon.classList.add('denied');
-            this.$notificationIcon.title = 'Notifications bloquées — réactivez-les dans les paramètres du navigateur';
+            this.$notificationIcon.title = this.isStandalone()
+              ? 'Notifications bloquées — réactivez-les dans les paramètres de l\'app (Paramètres > Applications > Badly > Notifications)'
+              : 'Notifications bloquées — réactivez-les dans les paramètres du navigateur';
           } else {
             this.$notificationIcon.textContent = '🔕';
             this.$notificationIcon.title = 'Cliquez pour activer les notifications';
@@ -314,7 +316,9 @@
             await this.requestNotificationPermission();
             this.updateNotificationIcon();
           } else {
-            this.toast('Notifications bloquées. Réactivez-les dans les paramètres de votre navigateur.', true);
+            this.toast(this.isStandalone()
+              ? 'Notifications bloquées. Réactivez-les dans Paramètres > Applications > Badly > Notifications.'
+              : 'Notifications bloquées. Réactivez-les dans les paramètres de votre navigateur.', true);
           }
         } else if (!this.isStandalone()) {
           const userAgent = navigator.userAgent || '';
