@@ -184,6 +184,20 @@
     </div>
   </div>
 
+  <div id="chat-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card chat-modal-card">
+      <div class="chat-modal-header">
+        <h2>Chat</h2>
+        <button type="button" id="chat-close" class="chat-close-btn" aria-label="Fermer">&times;</button>
+      </div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <form id="chat-form" class="chat-form">
+        <textarea id="chat-input" placeholder="Votre message..." maxlength="500" rows="1" required></textarea>
+        <button type="submit" aria-label="Envoyer"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+      </form>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container"></div>
 
   <div id="install-prompt" class="install-prompt hidden">
