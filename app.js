@@ -23,8 +23,16 @@
         }, 60000);
       },
       hasChatDraft() {
-        return Array.from(document.querySelectorAll('.chat-form input'))
-          .some((input) => input.value.length > 0);
+        return this.$chatInput && this.$chatInput.value.length > 0;
+      },
+      lockScroll() {
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+        document.body.style.paddingRight = scrollbarWidth + 'px';
+        document.body.classList.add('modal-open');
+      },
+      unlockScroll() {
+        document.body.style.paddingRight = '';
+        document.body.classList.remove('modal-open');
       },
       cacheElements() {
         this.$authModal = document.getElementById('auth-modal');
@@ -62,6 +70,11 @@
         this.$participantsCancel = document.getElementById('participants-cancel');
         this.$participantsSave = document.getElementById('participants-save');
         this.$notificationIcon = document.getElementById('notification-icon');
+        this.$chatModal = document.getElementById('chat-modal');
+        this.$chatMessages = document.getElementById('chat-messages');
+        this.$chatForm = document.getElementById('chat-form');
+        this.$chatInput = document.getElementById('chat-input');
+        this.$chatClose = document.getElementById('chat-close');
       },
       disablePinchZoom() {
         document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -100,6 +113,25 @@
           }
           if (!this.$participantsModal.classList.contains('hidden')) {
             this.closeParticipantsModal();
+          }
+          if (!this.$chatModal.classList.contains('hidden')) {
+            this.closeChatModal();
+          }
+        });
+        this.$chatClose.addEventListener('click', () => this.closeChatModal());
+        this.$chatInput.addEventListener('input', () => {
+          this.$chatInput.style.height = 'auto';
+          const newHeight = Math.min(this.$chatInput.scrollHeight, 120);
+          this.$chatInput.style.height = newHeight + 'px';
+          this.$chatInput.style.overflowY = this.$chatInput.scrollHeight > 120 ? 'auto' : 'hidden';
+        });
+        this.$chatForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const text = this.$chatInput.value.trim();
+          if (text && this.state.chatSessionId) {
+            this.sendChatMessage(this.state.chatSessionId, text);
+            this.$chatInput.value = '';
+            this.$chatInput.style.height = 'auto';
           }
         });
         this.$participantsCancel.addEventListener('click', () => this.closeParticipantsModal());
@@ -410,20 +442,20 @@
         
         this.$sessionModal.classList.remove('hidden');
         this.$backdrop.classList.remove('hidden');
-        document.body.classList.add('modal-open');
+        this.lockScroll();
       },
       closeSessionModal() {
         this.$sessionModal.classList.add('hidden');
         this.$backdrop.classList.add('hidden');
         this.$sessionForm.reset();
-        document.body.classList.remove('modal-open');
+        this.unlockScroll();
       },
       showAuthModal() {
         this.$authModal.classList.remove('hidden');
         this.$backdrop.classList.remove('hidden');
         this.$main.classList.add('hidden');
         this.$header.classList.add('hidden');
-        document.body.classList.add('modal-open');
+        this.lockScroll();
       },
       hideAuthModal() {
         this.$authModal.classList.add('hidden');
@@ -432,7 +464,7 @@
         this.$header.classList.remove('hidden');
         this.$signinForm.reset();
         this.$signupForm.reset();
-        document.body.classList.remove('modal-open');
+        this.unlockScroll();
       },
       async refreshSessions() {
         try {
@@ -441,6 +473,15 @@
           this.state.clubs = response.clubs || [];
           this.state.validUsernames = response.validUsernames || [];
           this.renderSessions();
+          // Mettre à jour le contenu du chat modal s'il est ouvert
+          if (this.state.chatSessionId && !this.$chatModal.classList.contains('hidden')) {
+            const updated = this.state.sessions.find(s => s.id === this.state.chatSessionId);
+            if (updated) {
+              const messages = Array.isArray(updated.messages) ? updated.messages : [];
+              this.$chatMessages.innerHTML = this.renderChatMessages(messages);
+              this.$chatMessages.scrollTop = this.$chatMessages.scrollHeight;
+            }
+          }
         } catch (err) {
           this.toast(err.message, true);
         }
@@ -490,11 +531,15 @@
 
           const others = participants.filter((name) => name !== session.organizer);
           const allParticipants = [session.organizer, ...others];
-          const participantsList = allParticipants.map((name, i) => 
-            i === 0 ? `<span class="people-name people-organizer">${name}</span>` : `<span class="people-name">${name}</span>`
-          ).join('');
+          const currentUser = this.state.user ? this.state.user.name : null;
+          const participantsList = allParticipants.map((name, i) => {
+            const classes = ['people-name'];
+            if (i === 0) classes.push('people-organizer');
+            if (name === currentUser) classes.push('people-self');
+            return `<span class="${classes.join(' ')}">${name}</span>`;
+          }).join('');
           const followersList = followers.length 
-            ? followers.map(name => `<span class="people-name">${name}</span>`).join('') 
+            ? followers.map(name => `<span class="people-name${name === currentUser ? ' people-self' : ''}">${name}</span>`).join('') 
             : `<span class="people-empty">—</span>`;
 
           const peopleGrid = document.createElement('div');
@@ -520,13 +565,13 @@
             if (isParticipant) {
               const leaveBtn = document.createElement('button');
               leaveBtn.className = 'btn-secondary';
-              leaveBtn.textContent = 'Quitter';
+              leaveBtn.textContent = '✓ Inscrit';
               leaveBtn.addEventListener('click', () => this.leaveSession(session.id));
               actions.appendChild(leaveBtn);
             } else {
               const joinBtn = document.createElement('button');
               joinBtn.className = 'btn-primary';
-              joinBtn.textContent = isFull ? 'Session pleine' : 'Rejoindre';
+              joinBtn.textContent = isFull ? 'Complet' : 'Participer';
               if (isFull) {
                 joinBtn.disabled = true;
                 joinBtn.classList.add('btn-disabled');
@@ -540,7 +585,7 @@
             const isFollowing = followers.includes(this.state.user.name);
             const followBtn = document.createElement('button');
             followBtn.className = isFollowing ? 'btn-secondary' : 'btn-primary';
-            followBtn.textContent = isFollowing ? 'Ne plus suivre' : 'Suivre';
+            followBtn.textContent = isFollowing ? '✓ Suivi' : 'Suivre';
             followBtn.addEventListener('click', () => {
               if (isFollowing) {
                 this.unfollowSession(session.id);
@@ -572,48 +617,21 @@
             actions.appendChild(info);
           }
 
+          // Bouton Chat (visible pour organisateur, participants et followers, avant démarrage)
+          const isFollowerForChat = this.state.user && followers.includes(this.state.user.name);
+          const canAccessChat = this.state.user && (isOrganizer || isParticipant || isFollowerForChat);
+          if (canAccessChat && !hasStarted) {
+            const chatBtn = document.createElement('button');
+            chatBtn.className = 'btn-secondary';
+            const messages = Array.isArray(session.messages) ? session.messages : [];
+            chatBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> ${messages.length}`;
+            chatBtn.addEventListener('click', () => this.openChatModal(session));
+            actions.appendChild(chatBtn);
+          }
+
           card.appendChild(header);
           card.appendChild(infoGrid);
           card.appendChild(peopleGrid);
-
-          // Section Chat (visible pour organisateur, participants et followers)
-          const isFollower = this.state.user && followers.includes(this.state.user.name);
-          const canAccessChat = this.state.user && (isOrganizer || isParticipant || isFollower);
-          if (canAccessChat && !hasStarted) {
-            const chatSection = document.createElement('details');
-            chatSection.className = 'chat-section';
-
-            const messages = Array.isArray(session.messages) ? session.messages : [];
-            const chatToggle = document.createElement('summary');
-            chatToggle.className = 'chat-toggle';
-            chatToggle.textContent = `Chat (${messages.length})`;
-
-            const chatMessages = document.createElement('div');
-            chatMessages.className = 'chat-messages';
-            chatMessages.innerHTML = this.renderChatMessages(messages);
-
-            const chatForm = document.createElement('form');
-            chatForm.className = 'chat-form';
-            chatForm.innerHTML = `
-              <input type="text" placeholder="Votre message..." maxlength="500" required>
-              <button type="submit">Envoyer</button>
-            `;
-            chatForm.addEventListener('submit', (e) => {
-              e.preventDefault();
-              const input = chatForm.querySelector('input');
-              const text = input.value.trim();
-              if (text) {
-                this.sendChatMessage(session.id, text);
-                input.value = '';
-              }
-            });
-
-            chatSection.appendChild(chatToggle);
-            chatSection.appendChild(chatMessages);
-            chatSection.appendChild(chatForm);
-            card.appendChild(chatSection);
-          }
-
           card.appendChild(actions);
           list.appendChild(card);
         });
@@ -628,7 +646,7 @@
               <span class="chat-message-sender">${this.escapeHtml(msg.sender)}</span>
               <span class="chat-message-time">${this.formatChatTime(msg.timestamp)}</span>
             </div>
-            <div class="chat-message-text">${this.escapeHtml(msg.text)}</div>
+            <div class="chat-message-text">${this.escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>
           </div>
         `).join('');
       },
@@ -658,10 +676,36 @@
         div.textContent = text;
         return div.innerHTML;
       },
+      openChatModal(session) {
+        this.state.chatSessionId = session.id;
+        const messages = Array.isArray(session.messages) ? session.messages : [];
+        this.$chatMessages.innerHTML = this.renderChatMessages(messages);
+        this.$chatInput.value = '';
+        this.$chatInput.style.height = 'auto';
+        this.$chatModal.classList.remove('hidden');
+        this.$backdrop.classList.remove('hidden');
+        this.lockScroll();
+        this.$chatMessages.scrollTop = this.$chatMessages.scrollHeight;
+      },
+      closeChatModal() {
+        this.$chatModal.classList.add('hidden');
+        this.$backdrop.classList.add('hidden');
+        this.unlockScroll();
+        this.state.chatSessionId = null;
+      },
       async sendChatMessage(sessionId, text) {
         try {
           await this.api('/sendMessage', { sessionId, text });
-          this.refreshSessions();
+          await this.refreshSessions();
+          // Ré-ouvrir le modal sur la session mise à jour
+          if (this.state.chatSessionId === sessionId) {
+            const updated = this.state.sessions.find(s => s.id === sessionId);
+            if (updated) {
+              const messages = Array.isArray(updated.messages) ? updated.messages : [];
+              this.$chatMessages.innerHTML = this.renderChatMessages(messages);
+              this.$chatMessages.scrollTop = this.$chatMessages.scrollHeight;
+            }
+          }
         } catch (err) {
           this.toast(err.message, true);
         }
@@ -748,11 +792,13 @@
         this.state.editingParticipants = [...session.participants];
         this.renderParticipantsModal();
         this.$participantsModal.classList.remove('hidden');
-        document.body.classList.add('modal-open');
+        this.$backdrop.classList.remove('hidden');
+        this.lockScroll();
       },
       closeParticipantsModal() {
         this.$participantsModal.classList.add('hidden');
-        document.body.classList.remove('modal-open');
+        this.$backdrop.classList.add('hidden');
+        this.unlockScroll();
         this.state.editingSession = null;
         this.state.editingParticipants = [];
       },
@@ -1047,11 +1093,11 @@
         }
 
         this.$installPrompt.classList.remove('hidden');
-        document.body.classList.add('modal-open');
+        this.lockScroll();
       },
       dismissInstallPrompt(permanently = false) {
         this.$installPrompt.classList.add('hidden');
-        document.body.classList.remove('modal-open');
+        this.unlockScroll();
         if (permanently) {
           // "J'ai compris !" : Enregistrer le cookie pour ne pas réafficher pendant 1 an
           this.setCookie('badlyInstallPromptSeen', 'true', 365);
