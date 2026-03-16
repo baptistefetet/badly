@@ -490,11 +490,15 @@
 
           const others = participants.filter((name) => name !== session.organizer);
           const allParticipants = [session.organizer, ...others];
-          const participantsList = allParticipants.map((name, i) => 
-            i === 0 ? `<span class="people-name people-organizer">${name}</span>` : `<span class="people-name">${name}</span>`
-          ).join('');
+          const currentUser = this.state.user ? this.state.user.name : null;
+          const participantsList = allParticipants.map((name, i) => {
+            const classes = ['people-name'];
+            if (i === 0) classes.push('people-organizer');
+            if (name === currentUser) classes.push('people-self');
+            return `<span class="${classes.join(' ')}">${name}</span>`;
+          }).join('');
           const followersList = followers.length 
-            ? followers.map(name => `<span class="people-name">${name}</span>`).join('') 
+            ? followers.map(name => `<span class="people-name${name === currentUser ? ' people-self' : ''}">${name}</span>`).join('') 
             : `<span class="people-empty">—</span>`;
 
           const peopleGrid = document.createElement('div');

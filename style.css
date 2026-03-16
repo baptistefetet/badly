@@ -378,7 +378,8 @@ main {
   color: var(--text);
 }
 
-.people-organizer {
+.people-organizer,
+.people-self {
   font-weight: 700;
 }
 
