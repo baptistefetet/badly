@@ -565,13 +565,13 @@
             if (isParticipant) {
               const leaveBtn = document.createElement('button');
               leaveBtn.className = 'btn-secondary';
-              leaveBtn.textContent = 'Quitter';
+              leaveBtn.textContent = '✓ Inscrit(e)';
               leaveBtn.addEventListener('click', () => this.leaveSession(session.id));
               actions.appendChild(leaveBtn);
             } else {
               const joinBtn = document.createElement('button');
               joinBtn.className = 'btn-primary';
-              joinBtn.textContent = isFull ? 'Complet' : 'Rejoindre';
+              joinBtn.textContent = isFull ? 'Complet' : 'Participer';
               if (isFull) {
                 joinBtn.disabled = true;
                 joinBtn.classList.add('btn-disabled');
@@ -585,7 +585,7 @@
             const isFollowing = followers.includes(this.state.user.name);
             const followBtn = document.createElement('button');
             followBtn.className = isFollowing ? 'btn-secondary' : 'btn-primary';
-            followBtn.textContent = isFollowing ? 'Ne plus suivre' : 'Suivre';
+            followBtn.textContent = isFollowing ? '✓ Suivi' : 'Suivre';
             followBtn.addEventListener('click', () => {
               if (isFollowing) {
                 this.unfollowSession(session.id);
