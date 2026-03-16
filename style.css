@@ -467,14 +467,18 @@ details[open] .chat-toggle::before {
   font-size: var(--font-size);
 }
 .chat-form button {
-  padding: 0.5rem 1rem;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
   background: var(--primary);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: var(--font-size);
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .chat-form button:hover {
   opacity: 0.9;
