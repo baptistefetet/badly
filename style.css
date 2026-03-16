@@ -314,6 +314,10 @@ main {
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .session-actions button:active {
