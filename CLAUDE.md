@@ -32,7 +32,7 @@ Sessions contain the following fields:
 - `datetime`: ISO 8601 datetime string
 - `durationMinutes`: Session duration (0-300)
 - `club`: Club name (must exist in clubs array)
-- `level`: Skill level (débutant, débutant/moyen, moyen, confirmé)
+- `level`: Skill level (débutant, moyen, confirmé)
 - `capacity`: Maximum participants (1-12)
 - `pricePerParticipant`: Price per person (rounded to 2 decimals)
 - `organizer`: Username of session creator

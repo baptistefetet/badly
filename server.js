@@ -400,7 +400,7 @@ async function handleCreateSession(req, res) {
     return;
   }
 
-  const allowedLevels = ['débutant', 'débutant/moyen', 'moyen', 'confirmé'];
+  const allowedLevels = ['débutant', 'moyen', 'confirmé'];
   const normalizedLevel = typeof level === 'string' ? level.trim() : '';
   if (!normalizedLevel || !allowedLevels.includes(normalizedLevel)) {
     sendError(res, 400, 'Niveau invalide');
@@ -966,7 +966,7 @@ async function handleEditSession(req, res) {
     return;
   }
 
-  const allowedLevels = ['débutant', 'débutant/moyen', 'moyen', 'confirmé'];
+  const allowedLevels = ['débutant', 'moyen', 'confirmé'];
   const normalizedLevel = typeof level === 'string' ? level.trim() : '';
   if (!normalizedLevel || !allowedLevels.includes(normalizedLevel)) {
     sendError(res, 400, 'Niveau invalide');
