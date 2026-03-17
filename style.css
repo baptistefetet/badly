@@ -230,11 +230,6 @@ main {
   background: rgba(46, 125, 50, 0.10);
 }
 
-.session-level-pill.level-debutant-moyen {
-  color: #1565c0;
-  background: rgba(21, 101, 192, 0.10);
-}
-
 .session-level-pill.level-moyen {
   color: #e65100;
   background: rgba(230, 81, 0, 0.10);
@@ -243,6 +238,31 @@ main {
 .session-level-pill.level-confirme {
   color: #b71c1c;
   background: rgba(183, 28, 28, 0.10);
+}
+
+.header-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-price-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8em;
+  font-weight: 500;
+  line-height: 1;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: rgba(128, 128, 128, 0.10);
+}
+
+.session-price-pill svg {
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .session-info-grid {
@@ -377,6 +397,17 @@ main {
   letter-spacing: 0.04em;
   color: var(--text-muted);
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.people-col:last-child .people-header {
+  justify-content: flex-end;
+}
+
+.people-count-full {
+  color: #e53935;
 }
 
 .people-name {
