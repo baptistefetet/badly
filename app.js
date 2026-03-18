@@ -515,7 +515,7 @@
             <div class="session-title">${session.club}</div>
             <div class="header-pills">
               ${session.level ? `<span class="session-level-pill ${levelClass}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${session.level}</span>` : ''}
-              <span class="session-price-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> ${priceLabel}</span>
+              <span class="session-price-pill">${priceLabel}</span>
             </div>
           `;
 
