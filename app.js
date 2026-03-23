@@ -537,9 +537,13 @@
             if (name === currentUser) classes.push('people-self');
             return `<span class="${classes.join(' ')}">${name}</span>`;
           }).join('');
-          const followersList = followers.length 
-            ? followers.map(name => `<span class="people-name${name === currentUser ? ' people-self' : ''}">${name}</span>`).join('') 
-            : `<span class="people-empty">—</span>`;
+          // Filter followers to exclude participants (except current user)
+           const filteredFollowers = followers.filter(follower => 
+             !participants.includes(follower) || follower === currentUser
+           );
+           const followersList = filteredFollowers.length 
+             ? filteredFollowers.map(name => `<span class="people-name${name === currentUser ? ' people-self' : ''}">${name}</span>`).join('') 
+             : `<span class="people-empty">—</span>`;
 
           const peopleGrid = document.createElement('div');
           peopleGrid.className = 'people-grid';
