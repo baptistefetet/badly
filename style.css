@@ -554,26 +554,26 @@ main {
 }
 
 .fab {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 60px;
-  height: 60px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: var(--accent);
   color: #1a1a1a;
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 16px 30px rgba(255, 183, 3, 0.4);
+  box-shadow: 0 4px 12px rgba(255, 183, 3, 0.35);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  z-index: 15;
+  line-height: 1;
 }
 
 .fab:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 20px 36px rgba(255, 183, 3, 0.5);
+  transform: translateX(-50%) scale(1.1);
+  box-shadow: 0 6px 16px rgba(255, 183, 3, 0.5);
 }
 
 .backdrop {
@@ -859,10 +859,6 @@ select:focus {
   }
   .session-card {
     padding: 16px;
-  }
-  .fab {
-    right: 16px;
-    bottom: 16px;
   }
 }
 
