@@ -531,10 +531,12 @@
           const others = participants.filter((name) => name !== session.organizer);
           const allParticipants = [session.organizer, ...others];
           const currentUser = this.state.user ? this.state.user.name : null;
+          const validUsernames = this.state.validUsernames || [];
           const participantsList = allParticipants.map((name, i) => {
             const classes = ['people-name'];
             if (i === 0) classes.push('people-organizer');
             if (name === currentUser) classes.push('people-self');
+            if (!validUsernames.some(u => u.toLowerCase() === name.toLowerCase())) classes.push('people-external');
             return `<span class="${classes.join(' ')}">${name}</span>`;
           }).join('');
           // Filter followers to exclude participants (except current user)
@@ -833,7 +835,7 @@
             icon.title = isValidUser ? 'Utilisateur inscrit' : 'Participant externe';
 
             const nameSpan = document.createElement('span');
-            nameSpan.className = 'participant-name';
+            nameSpan.className = isValidUser ? 'participant-name' : 'participant-name participant-external';
             nameSpan.textContent = name;
 
             const removeBtn = document.createElement('button');
