@@ -419,6 +419,10 @@ main {
   font-weight: 700;
 }
 
+.people-external {
+  font-style: italic;
+}
+
 .people-empty {
   color: var(--text-muted);
 }
@@ -742,6 +746,10 @@ select:focus {
 .participant-name {
   flex: 1;
   font-weight: 500;
+}
+
+.participant-external {
+  font-style: italic;
 }
 
 .participant-remove {
